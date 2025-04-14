@@ -1,6 +1,19 @@
 use dotenv::dotenv;
+use sea_orm::{Database, DatabaseConnection};
 use serde::Deserialize;
 use xitca_web::{App, codegen::route, handler::params::LazyParams, middleware::Logger};
+
+mod entities;
+use entities::prelude::*;
+
+mod body;
+mod params;
+mod routes;
+
+#[derive(Clone)]
+struct AppState {
+    db: DatabaseConnection,
+}
 
 #[derive(Deserialize)]
 struct hello<'a> {
@@ -22,7 +35,14 @@ async fn about(params: LazyParams<'_, hello<'_>>) -> String {
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
 
+    let db: DatabaseConnection = Database::connect("protocol://username:password@host/database")
+        .await
+        .expect("Failed to connect to database");
+
+    let app_state = AppState { db };
+
     App::new()
+        .with_state(app_state)
         .at_typed(root)
         .at_typed(about)
         .enclosed(Logger::new())
