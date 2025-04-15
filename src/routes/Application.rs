@@ -1,4 +1,4 @@
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, Related};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::Deserialize;
 use xitca_web::error::Error;
 use xitca_web::{
@@ -9,8 +9,6 @@ use xitca_web::{
 use crate::AppState;
 use crate::CustomError::*;
 use crate::entities::{prelude::*, *};
-
-use serde::Deserialize;
 
 #[derive(Deserialize)]
 struct GetHomeApplicationParams<'a> {
