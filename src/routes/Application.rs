@@ -1,8 +1,8 @@
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::Deserialize;
-use xitca_web::error::Error;
 use xitca_web::{
     codegen::route,
+    error::Error,
     handler::{json::Json, params::LazyParams, state::StateRef},
 };
 

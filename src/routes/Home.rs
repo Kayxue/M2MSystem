@@ -26,7 +26,7 @@ pub struct HomeParams<'a> {
 pub async fn createHome(
     state: StateRef<'_, AppState>,
     body: LazyJson<HomeCreateAndUpdate<'_>>,
-) -> Result<Json<crate::entities::home::Model>, Error> {
+) -> Result<Json<home::Model>, Error> {
     let HomeCreateAndUpdate { name } = body.deserialize()?;
 
     let newHome = home::ActiveModel {
@@ -45,7 +45,7 @@ pub async fn createHome(
 #[route("/home/getHomes", method = get)]
 pub async fn getHomes(
     state: StateRef<'_, AppState>,
-) -> Result<Json<Vec<crate::entities::home::Model>>, Error> {
+) -> Result<Json<Vec<home::Model>>, Error> {
     match Home::find().all(&state.db).await {
         Ok(homes) => Ok(Json(homes)),
         Err(e) => {
@@ -59,7 +59,7 @@ pub async fn getHomes(
 pub async fn getHome(
     state: StateRef<'_, AppState>,
     params: LazyParams<'_, HomeParams<'_>>,
-) -> Result<Json<crate::entities::home::Model>, Error> {
+) -> Result<Json<home::Model>, Error> {
     let HomeParams { id } = params.deserialize()?;
 
     match Home::find_by_id(id).one(&state.db).await {
@@ -77,7 +77,7 @@ pub async fn updateHome(
     state: StateRef<'_, AppState>,
     params: LazyParams<'_, HomeParams<'_>>,
     body: LazyJson<HomeCreateAndUpdate<'_>>,
-) -> Result<Json<crate::entities::home::Model>, Error> {
+) -> Result<Json<home::Model>, Error> {
     let HomeParams { id } = params.deserialize()?;
     let HomeCreateAndUpdate { name } = body.deserialize()?;
 
