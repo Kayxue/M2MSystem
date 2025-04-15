@@ -46,6 +46,8 @@ async fn main() -> std::io::Result<()> {
         .at_typed(root)
         .at_typed(about)
         .at_typed(createHome)
+        .at_typed(getHomes)
+        .at_typed(getHome)
         .enclosed(Logger::new())
         .serve()
         .bind(("0.0.0.0", 3000))?
