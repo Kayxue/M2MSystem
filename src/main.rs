@@ -35,9 +35,11 @@ async fn about(params: LazyParams<'_, hello<'_>>) -> String {
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
 
-    let db: DatabaseConnection = Database::connect("postgres://root:Iw0uuc2XWVUCoi0JRpBYr@100.110.94.33:3000/public?currentSchema=public")
-        .await
-        .expect("Failed to connect to database");
+    let db: DatabaseConnection = Database::connect(
+        "postgres://root:Iw0uuc2XWVUCoi0JRpBYr@100.110.94.33:3000/public?currentSchema=public",
+    )
+    .await
+    .expect("Failed to connect to database");
 
     let app_state = AppState { db };
 

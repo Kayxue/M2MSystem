@@ -13,7 +13,7 @@ use crate::entities::{prelude::*, *};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
-pub struct HomeCreateAndUpdate<'a> {
+pub struct HomeCU<'a> {
     pub name: &'a str,
 }
 
@@ -25,9 +25,9 @@ pub struct HomeParams<'a> {
 #[route("/home", method = post)]
 pub async fn createHome(
     state: StateRef<'_, AppState>,
-    body: LazyJson<HomeCreateAndUpdate<'_>>,
+    body: LazyJson<HomeCU<'_>>,
 ) -> Result<Json<home::Model>, Error> {
-    let HomeCreateAndUpdate { name } = body.deserialize()?;
+    let HomeCU { name } = body.deserialize()?;
 
     let newHome = home::ActiveModel {
         id: sea_orm::ActiveValue::Set(nanoid!(10)),
@@ -43,9 +43,7 @@ pub async fn createHome(
 }
 
 #[route("/home/getHomes", method = get)]
-pub async fn getHomes(
-    state: StateRef<'_, AppState>,
-) -> Result<Json<Vec<home::Model>>, Error> {
+pub async fn getHomes(state: StateRef<'_, AppState>) -> Result<Json<Vec<home::Model>>, Error> {
     match Home::find().all(&state.db).await {
         Ok(homes) => Ok(Json(homes)),
         Err(e) => {
@@ -76,10 +74,10 @@ pub async fn getHome(
 pub async fn updateHome(
     state: StateRef<'_, AppState>,
     params: LazyParams<'_, HomeParams<'_>>,
-    body: LazyJson<HomeCreateAndUpdate<'_>>,
+    body: LazyJson<HomeCU<'_>>,
 ) -> Result<Json<home::Model>, Error> {
     let HomeParams { id } = params.deserialize()?;
-    let HomeCreateAndUpdate { name } = body.deserialize()?;
+    let HomeCU { name } = body.deserialize()?;
 
     match Home::find_by_id(id).one(&state.db).await {
         Ok(Some(home)) => {
