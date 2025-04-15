@@ -1,8 +1,7 @@
 use dotenv::dotenv;
 use sea_orm::{Database, DatabaseConnection};
-use serde::Deserialize;
 use std::env;
-use xitca_web::{App, codegen::route, handler::params::LazyParams, middleware::Logger};
+use xitca_web::{App, codegen::route, middleware::Logger};
 
 mod entities;
 
@@ -21,20 +20,9 @@ struct AppState {
     db: DatabaseConnection,
 }
 
-#[derive(Deserialize)]
-struct hello<'a> {
-    name: &'a str,
-}
-
 #[route("/",method = get)]
 async fn root() -> &'static str {
     "Hello World"
-}
-
-#[route("/location/:name", method = get)]
-async fn about(params: LazyParams<'_, hello<'_>>) -> String {
-    let hello { name } = params.deserialize().unwrap();
-    name.to_owned()
 }
 
 #[tokio::main]
@@ -51,7 +39,6 @@ async fn main() -> std::io::Result<()> {
     App::new()
         .with_state(app_state)
         .at_typed(root)
-        .at_typed(about)
         //Home Routes
         .at_typed(createHome)
         .at_typed(getHomes)
