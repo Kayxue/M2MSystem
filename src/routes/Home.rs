@@ -1,4 +1,5 @@
 use nanoid::nanoid;
+use sea_orm::SqlErr::UniqueConstraintViolation;
 use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait};
 use xitca_web::codegen::route;
 use xitca_web::error::Error;
@@ -29,9 +30,16 @@ pub async fn createHome(
         ..Default::default()
     };
 
-    if let Ok(entity) = newHome.insert(&state.db).await {
-        Ok(Json(entity))
-    } else {
-        Err(InternalServerError::new("Failed to create home").into())
+    match newHome.insert(&state.db).await {
+        Ok(entity) => Ok(Json(entity)),
+        Err(e) => match e.sql_err() {
+            Some(UniqueConstraintViolation(_)) => {
+                Err(BadRequest::new("Home with specific name already exists").into())
+            }
+            _ => {
+                eprintln!("Error inserting home: {:?}", e);
+                Err(InternalServerError::new("Failed to create home").into())
+            }
+        },
     }
 }
