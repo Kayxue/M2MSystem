@@ -1,5 +1,5 @@
 use nanoid::nanoid;
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, SqlErr};
 use serde::Deserialize;
 use xitca_web::{
     codegen::route,
@@ -71,10 +71,17 @@ pub async fn addApplication(
         ..Default::default()
     };
 
-    if let Ok(entity) = new_application.insert(&state.db).await {
-        Ok(Json(entity))
-    } else {
-        Err(InternalServerError::new("Failed to create application").into())
+    match new_application.insert(&state.db).await {
+        Ok(entity) => Ok(Json(entity)),
+        Err(e) => match e.sql_err() {
+            Some(SqlErr::ForeignKeyConstraintViolation(_)) => {
+                Err(BadRequest::new("Home not found").into())
+            }
+            _ => {
+                eprintln!("Error creating application: {:?}", e);
+                Err(InternalServerError::new("Failed to create application").into())
+            }
+        },
     }
 }
 
