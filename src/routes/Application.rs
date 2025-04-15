@@ -23,7 +23,7 @@ pub async fn getHomeApplication(
     let GetHomeApplicationParams { id } = params.deserialize()?;
     if let Ok(home_application) = Home::find()
         .find_with_related(Application)
-        .filter(home::Column::Id.eq(id.to_owned()))
+        .filter(home::Column::Id.eq(id))
         .all(&state.db)
         .await
     {
