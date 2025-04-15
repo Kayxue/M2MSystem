@@ -1,47 +1,40 @@
 use nanoid::nanoid;
+use ntex::web::error::{ErrorBadRequest, ErrorInternalServerError};
+use ntex::web::types::{Json, Path, State};
+use ntex::web::{WebResponseError, delete, get, patch, post};
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, SqlErr};
 use serde::Deserialize;
-use xitca_web::{
-    codegen::route,
-    error::Error,
-    handler::{
-        json::{Json, LazyJson},
-        params::LazyParams,
-        state::StateRef,
-    },
-};
 
 use crate::AppState;
-use crate::CustomError::*;
 use crate::entities::{prelude::*, *};
 
 #[derive(Deserialize)]
-struct ApplicationCreate<'a> {
-    pub name: &'a str,
-    pub home_id: &'a str,
+struct ApplicationCreate {
+    pub name: String,
+    pub home_id: String,
 }
 
 #[derive(Deserialize)]
-struct ApplicationUpdate<'a> {
-    pub name: &'a str,
+struct ApplicationUpdate {
+    pub name: String,
 }
 
 #[derive(Deserialize)]
-struct RHomeApplicationParams<'a> {
-    homeId: &'a str,
+struct RHomeApplicationParams {
+    homeId: String,
 }
 
 #[derive(Deserialize)]
-struct RUDApplicationParams<'a> {
-    id: &'a str,
+struct RUDApplicationParams {
+    id: String,
 }
 
-#[route("/application/getHomeApplication/:homeId", method = get)]
+#[get("/application/getHomeApplication/{homeId}")]
 pub async fn getHomeApplication(
-    state: StateRef<'_, AppState>,
-    params: LazyParams<'_, RHomeApplicationParams<'_>>,
-) -> Result<Json<Vec<application::Model>>, Error> {
-    let RHomeApplicationParams { homeId } = params.deserialize()?;
+    state: State<AppState>,
+    params: Path<RHomeApplicationParams>,
+) -> Result<Json<Vec<application::Model>>, impl WebResponseError> {
+    let RHomeApplicationParams { homeId } = params.into_inner();
     if let Ok(home_application) = Home::find()
         .find_with_related(Application)
         .filter(home::Column::Id.eq(homeId))
@@ -51,18 +44,18 @@ pub async fn getHomeApplication(
         if let Some(home) = home_application.first() {
             return Ok(Json(home.1.clone()));
         }
-        Err(BadRequest::new("Home not found").into())
+        Err(ErrorBadRequest("Home not found"))
     } else {
-        Err(InternalServerError::new("Query failed").into())
+        Err(ErrorInternalServerError("Query failed"))
     }
 }
 
-#[route("/application/addApplication/", method = post)]
+#[post("/application")]
 pub async fn addApplication(
-    state: StateRef<'_, AppState>,
-    body: LazyJson<ApplicationCreate<'_>>,
-) -> Result<Json<application::Model>, Error> {
-    let ApplicationCreate { name, home_id } = body.deserialize()?;
+    state: State<AppState>,
+    body: Json<ApplicationCreate>,
+) -> Result<Json<application::Model>, impl WebResponseError> {
+    let ApplicationCreate { name, home_id } = body.into_inner();
 
     let new_application = application::ActiveModel {
         id: sea_orm::ActiveValue::Set(nanoid!(10)),
@@ -74,42 +67,40 @@ pub async fn addApplication(
     match new_application.insert(&state.db).await {
         Ok(entity) => Ok(Json(entity)),
         Err(e) => match e.sql_err() {
-            Some(SqlErr::ForeignKeyConstraintViolation(_)) => {
-                Err(BadRequest::new("Home not found").into())
-            }
+            Some(SqlErr::ForeignKeyConstraintViolation(_)) => Err(ErrorBadRequest("Query failed")),
             _ => {
                 eprintln!("Error creating application: {:?}", e);
-                Err(InternalServerError::new("Failed to create application").into())
+                Err(ErrorInternalServerError("Query failed"))
             }
         },
     }
 }
 
-#[route("/application/getApplication/:id", method = get)]
+#[get("/application/{id}")]
 pub async fn getApplication(
-    state: StateRef<'_, AppState>,
-    params: LazyParams<'_, RUDApplicationParams<'_>>,
-) -> Result<Json<application::Model>, Error> {
-    let RUDApplicationParams { id } = params.deserialize()?;
+    state: State<AppState>,
+    params: Path<RUDApplicationParams>,
+) -> Result<Json<application::Model>, impl WebResponseError> {
+    let RUDApplicationParams { id } = params.into_inner();
 
     match application::Entity::find_by_id(id).one(&state.db).await {
         Ok(Some(app)) => Ok(Json(app)),
-        Ok(None) => Err(BadRequest::new("Application not found").into()),
+        Ok(None) => Err(ErrorBadRequest("Application not found")),
         Err(e) => {
             eprintln!("Error fetching application: {:?}", e);
-            Err(InternalServerError::new("Failed to fetch application").into())
+            Err(ErrorInternalServerError("Application not found"))
         }
     }
 }
 
-#[route("/application/updateApplication/:id", method = patch)]
+#[patch("/application/{id}")]
 pub async fn updateApplication(
-    state: StateRef<'_, AppState>,
-    params: LazyParams<'_, RUDApplicationParams<'_>>,
-    body: LazyJson<ApplicationUpdate<'_>>,
-) -> Result<Json<application::Model>, Error> {
-    let RUDApplicationParams { id } = params.deserialize()?;
-    let ApplicationUpdate { name } = body.deserialize()?;
+    state: State<AppState>,
+    params: Path<RUDApplicationParams>,
+    body: Json<ApplicationUpdate>,
+) -> Result<Json<application::Model>, impl WebResponseError> {
+    let RUDApplicationParams { id } = params.into_inner();
+    let ApplicationUpdate { name } = body.into_inner();
 
     match application::Entity::find_by_id(id).one(&state.db).await {
         Ok(Some(app)) => {
@@ -118,29 +109,29 @@ pub async fn updateApplication(
             if let Ok(entity) = application.update(&state.db).await {
                 Ok(Json(entity))
             } else {
-                Err(InternalServerError::new("Failed to update application").into())
+                Err(ErrorInternalServerError("Failed to update application"))
             }
         }
-        Ok(None) => Err(BadRequest::new("Application not found").into()),
+        Ok(None) => Err(ErrorBadRequest("Failed to update application")),
         Err(e) => {
             eprintln!("Error fetching application: {:?}", e);
-            Err(InternalServerError::new("Failed to fetch application").into())
+            Err(ErrorInternalServerError("Failed to update application"))
         }
     }
 }
 
-#[route("/application/deleteApplication/:id", method = delete)]
+#[delete("/application/{id}")]
 pub async fn deleteApplication(
-    state: StateRef<'_, AppState>,
-    params: LazyParams<'_, RUDApplicationParams<'_>>,
-) -> Result<&'static str, Error> {
-    let RUDApplicationParams { id } = params.deserialize()?;
+    state: State<AppState>,
+    params: Path<RUDApplicationParams>,
+) -> Result<&'static str, impl WebResponseError> {
+    let RUDApplicationParams { id } = params.into_inner();
 
     match Application::delete_by_id(id).exec(&state.db).await {
         Ok(_) => Ok("Application deleted successfully"),
         Err(e) => {
             eprintln!("Error fetching application: {:?}", e);
-            Err(InternalServerError::new("Failed to fetch application").into())
+            Err(ErrorInternalServerError("Failed to fetch application"))
         }
     }
 }
