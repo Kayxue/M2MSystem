@@ -4,11 +4,11 @@ use serde::Deserialize;
 use xitca_web::{App, codegen::route, handler::params::LazyParams, middleware::Logger};
 
 mod entities;
-use entities::prelude::*;
 
-mod body;
-mod params;
 mod routes;
+use routes::Home::*;
+
+mod CustomError;
 
 #[derive(Clone)]
 struct AppState {
@@ -45,6 +45,7 @@ async fn main() -> std::io::Result<()> {
         .with_state(app_state)
         .at_typed(root)
         .at_typed(about)
+        .at_typed(createHome)
         .enclosed(Logger::new())
         .serve()
         .bind(("0.0.0.0", 3000))?
