@@ -53,7 +53,7 @@ pub async fn getHomes(state: StateRef<'_, AppState>) -> Result<Json<Vec<home::Mo
     }
 }
 
-#[route("/home/:id", method = get)]
+#[route("/home/get/:id", method = get)]
 pub async fn getHome(
     state: StateRef<'_, AppState>,
     params: LazyParams<'_, HomeParams<'_>>,
@@ -70,7 +70,7 @@ pub async fn getHome(
     }
 }
 
-#[route("/home/:id", method = patch)]
+#[route("/home/update/:id", method = patch)]
 pub async fn updateHome(
     state: StateRef<'_, AppState>,
     params: LazyParams<'_, HomeParams<'_>>,
@@ -99,7 +99,7 @@ pub async fn updateHome(
     }
 }
 
-#[route("/home/:id", method = delete)]
+#[route("/home/delete/:id", method = delete)]
 pub async fn deleteHome(
     state: StateRef<'_, AppState>,
     params: LazyParams<'_, HomeParams<'_>>,

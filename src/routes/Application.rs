@@ -78,7 +78,7 @@ pub async fn addApplication(
     }
 }
 
-#[route("/application/:id", method = get)]
+#[route("/application/getApplication/:id", method = get)]
 pub async fn getApplication(
     state: StateRef<'_, AppState>,
     params: LazyParams<'_, RUDApplicationParams<'_>>,
@@ -122,7 +122,7 @@ pub async fn updateApplication(
     }
 }
 
-#[route("/application/:id", method = delete)]
+#[route("/application/deleteApplication/:id", method = delete)]
 pub async fn deleteApplication(
     state: StateRef<'_, AppState>,
     params: LazyParams<'_, RUDApplicationParams<'_>>,

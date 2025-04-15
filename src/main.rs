@@ -6,7 +6,7 @@ use xitca_web::{App, codegen::route, handler::params::LazyParams, middleware::Lo
 mod entities;
 
 mod routes;
-use routes::Home::*;
+use routes::{Application::{addApplication, deleteApplication, getApplication, getHomeApplication, updateApplication}, Home::*};
 
 mod CustomError;
 
@@ -47,9 +47,21 @@ async fn main() -> std::io::Result<()> {
         .with_state(app_state)
         .at_typed(root)
         .at_typed(about)
+
+        //Home Routes
         .at_typed(createHome)
         .at_typed(getHomes)
         .at_typed(getHome)
+        .at_typed(updateHome)
+        .at_typed(deleteHome)
+
+        //Application Routes
+        .at_typed(getHomeApplication)
+        .at_typed(addApplication)
+        .at_typed(getApplication)
+        .at_typed(updateApplication)
+        .at_typed(deleteApplication)
+
         .enclosed(Logger::new())
         .serve()
         .bind(("0.0.0.0", 3000))?
