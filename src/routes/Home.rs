@@ -10,12 +10,12 @@ use crate::entities::{prelude::*, *};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
-pub struct HomeCU {
+struct HomeCU {
     pub name: String,
 }
 
 #[derive(Deserialize)]
-pub struct HomeParams {
+struct HomeParams {
     pub id: String,
 }
 
@@ -25,7 +25,7 @@ struct RHomeApplicationParams {
 }
 
 #[post("")]
-pub async fn createHome(
+async fn createHome(
     state: State<AppState>,
     body: Json<HomeCU>,
 ) -> Result<Json<home::Model>, impl WebResponseError> {
@@ -43,9 +43,7 @@ pub async fn createHome(
 }
 
 #[get("")]
-pub async fn getHomes(
-    state: State<AppState>,
-) -> Result<Json<Vec<home::Model>>, impl WebResponseError> {
+async fn getHomes(state: State<AppState>) -> Result<Json<Vec<home::Model>>, impl WebResponseError> {
     match Home::find().all(&state.db).await {
         Ok(homes) => Ok(Json(homes)),
         Err(e) => {
@@ -56,7 +54,7 @@ pub async fn getHomes(
 }
 
 #[get("/{id}")]
-pub async fn getHome(
+async fn getHome(
     state: State<AppState>,
     params: Path<HomeParams>,
 ) -> Result<Json<home::Model>, impl WebResponseError> {
@@ -73,7 +71,7 @@ pub async fn getHome(
 }
 
 #[get("/{homeId}/applications")]
-pub async fn getHomeApplication(
+async fn getHomeApplication(
     state: State<AppState>,
     params: Path<RHomeApplicationParams>,
 ) -> Result<Json<Vec<application::Model>>, impl WebResponseError> {
@@ -94,7 +92,7 @@ pub async fn getHomeApplication(
 }
 
 #[patch("/{id}")]
-pub async fn updateHome(
+async fn updateHome(
     state: State<AppState>,
     params: Path<HomeParams>,
     body: Json<HomeCU>,
@@ -123,7 +121,7 @@ pub async fn updateHome(
 }
 
 #[delete("/{id}")]
-pub async fn deleteHome(
+async fn deleteHome(
     state: State<AppState>,
     params: Path<HomeParams>,
 ) -> Result<&'static str, impl WebResponseError> {

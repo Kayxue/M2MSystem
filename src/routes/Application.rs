@@ -2,7 +2,7 @@ use nanoid::nanoid;
 use ntex::web::error::{ErrorBadRequest, ErrorInternalServerError};
 use ntex::web::types::{Json, Path, State};
 use ntex::web::{ServiceConfig, WebResponseError, delete, get, patch, post};
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, SqlErr};
+use sea_orm::{ActiveModelTrait, EntityTrait, SqlErr};
 use serde::Deserialize;
 
 use crate::AppState;
@@ -25,7 +25,7 @@ struct RUDApplicationParams {
 }
 
 #[post("")]
-pub async fn addApplication(
+async fn addApplication(
     state: State<AppState>,
     body: Json<ApplicationCreate>,
 ) -> Result<Json<application::Model>, impl WebResponseError> {
@@ -51,13 +51,13 @@ pub async fn addApplication(
 }
 
 #[get("/{id}")]
-pub async fn getApplication(
+async fn getApplication(
     state: State<AppState>,
     params: Path<RUDApplicationParams>,
 ) -> Result<Json<application::Model>, impl WebResponseError> {
     let RUDApplicationParams { id } = params.into_inner();
 
-    match application::Entity::find_by_id(id).one(&state.db).await {
+    match Application::find_by_id(id).one(&state.db).await {
         Ok(Some(app)) => Ok(Json(app)),
         Ok(None) => Err(ErrorBadRequest("Application not found")),
         Err(e) => {
@@ -68,7 +68,7 @@ pub async fn getApplication(
 }
 
 #[patch("/{id}")]
-pub async fn updateApplication(
+async fn updateApplication(
     state: State<AppState>,
     params: Path<RUDApplicationParams>,
     body: Json<ApplicationUpdate>,
@@ -76,7 +76,7 @@ pub async fn updateApplication(
     let RUDApplicationParams { id } = params.into_inner();
     let ApplicationUpdate { name } = body.into_inner();
 
-    match application::Entity::find_by_id(id).one(&state.db).await {
+    match Application::find_by_id(id).one(&state.db).await {
         Ok(Some(app)) => {
             let mut application: application::ActiveModel = app.into();
             application.name = sea_orm::ActiveValue::Set(name.to_owned());
@@ -95,7 +95,7 @@ pub async fn updateApplication(
 }
 
 #[delete("/{id}")]
-pub async fn deleteApplication(
+async fn deleteApplication(
     state: State<AppState>,
     params: Path<RUDApplicationParams>,
 ) -> Result<&'static str, impl WebResponseError> {
@@ -104,8 +104,8 @@ pub async fn deleteApplication(
     match Application::delete_by_id(id).exec(&state.db).await {
         Ok(_) => Ok("Application deleted successfully"),
         Err(e) => {
-            eprintln!("Error fetching application: {:?}", e);
-            Err(ErrorInternalServerError("Failed to fetch application"))
+            eprintln!("Error deleting application: {:?}", e);
+            Err(ErrorInternalServerError("Failed to delete application"))
         }
     }
 }
