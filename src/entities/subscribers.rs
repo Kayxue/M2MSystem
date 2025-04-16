@@ -7,8 +7,9 @@ use serde::Serialize;
 #[sea_orm(table_name = "subscribers")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
+    pub id: String,
     pub container_id: String,
-    #[sea_orm(primary_key, auto_increment = false, column_type = "Text")]
+    #[sea_orm(column_type = "Text")]
     pub notification_url: String,
     pub create_at: DateTime,
 }

@@ -8,9 +8,9 @@ use serde::Serialize;
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
-    pub created_at: DateTime,
     #[sea_orm(column_type = "Text")]
     pub name: String,
+    pub created_at: DateTime,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
