@@ -1,7 +1,7 @@
 use nanoid::nanoid;
 use ntex::web::error::{ErrorBadRequest, ErrorInternalServerError};
 use ntex::web::types::{Json, Path, State};
-use ntex::web::{WebResponseError, delete, get, patch, post};
+use ntex::web::{self, ServiceConfig, WebResponseError, delete, get, patch, post, resource};
 use sea_orm::{ActiveModelTrait, EntityTrait};
 
 use crate::AppState;
@@ -19,7 +19,7 @@ pub struct HomeParams {
     pub id: String,
 }
 
-#[post("/home")]
+#[post("")]
 pub async fn createHome(
     state: State<AppState>,
     body: Json<HomeCU>,
@@ -37,7 +37,7 @@ pub async fn createHome(
     }
 }
 
-#[get("/home")]
+#[get("")]
 pub async fn getHomes(
     state: State<AppState>,
 ) -> Result<Json<Vec<home::Model>>, impl WebResponseError> {
@@ -50,7 +50,7 @@ pub async fn getHomes(
     }
 }
 
-#[get("/home/{id}")]
+#[get("/{id}")]
 pub async fn getHome(
     state: State<AppState>,
     params: Path<HomeParams>,
@@ -67,7 +67,7 @@ pub async fn getHome(
     }
 }
 
-#[patch("/home/{id}")]
+#[patch("/{id}")]
 pub async fn updateHome(
     state: State<AppState>,
     params: Path<HomeParams>,
@@ -96,7 +96,7 @@ pub async fn updateHome(
     }
 }
 
-#[delete("/home/{id}")]
+#[delete("/{id}")]
 pub async fn deleteHome(
     state: State<AppState>,
     params: Path<HomeParams>,
@@ -110,4 +110,12 @@ pub async fn deleteHome(
             Err(ErrorInternalServerError("Failed to delete home"))
         }
     }
+}
+
+pub fn addHomeRoute(cfg: &mut ServiceConfig) {
+    cfg.service(createHome)
+        .service(getHome)
+        .service(getHomes)
+        .service(updateHome)
+        .service(deleteHome);
 }

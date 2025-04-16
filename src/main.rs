@@ -1,9 +1,9 @@
 use dotenv::dotenv;
 use ntex::{
     main,
-    web::{App, HttpServer, get},
+    web::{self, App, HttpServer, get},
 };
-use routes::Home::{createHome, deleteHome, getHome, getHomes, updateHome};
+use routes::Home::{addHomeRoute, createHome, deleteHome, getHome, getHomes, updateHome};
 use sea_orm::{Database, DatabaseConnection};
 use std::env;
 
@@ -38,11 +38,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .state(app_state.clone())
             .service(root)
-            .service(createHome)
-            .service(getHomes)
-            .service(getHome)
-            .service(updateHome)
-            .service(deleteHome)
+            .service(web::scope("/home").configure(addHomeRoute))
     })
     .bind(("0.0.0.0", 3000))?
     .run()
