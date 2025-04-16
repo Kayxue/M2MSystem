@@ -75,7 +75,7 @@ async fn get_home(
     }
 }
 
-#[get("/{homeId}/applications")]
+#[get("/{home_id}/applications")]
 async fn get_home_application(
     state: State<AppState>,
     params: Path<RHomeApplicationParams>,

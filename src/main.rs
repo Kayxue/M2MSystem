@@ -3,7 +3,11 @@ use ntex::{
     main,
     web::{self, App, HttpServer, get},
 };
-use routes::{Application::add_application_route, DataContainer::add_data_container_routes, Home::add_home_route, Sensor::add_sensor_route, SensorData::add_sensor_data_route, Subscriber::add_subscriber_route};
+use routes::{
+    Application::add_application_route, DataContainer::add_data_container_routes,
+    Home::add_home_route, Sensor::add_sensor_route, SensorData::add_sensor_data_route,
+    Subscriber::add_subscriber_route,
+};
 use sea_orm::{Database, DatabaseConnection};
 use std::env;
 

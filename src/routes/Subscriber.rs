@@ -1,6 +1,9 @@
 use nanoid::nanoid;
 use ntex::web::{
-    delete, error::{ErrorBadRequest, ErrorInternalServerError}, get, patch, post, types::{Json, Path, State}, ServiceConfig, WebResponseError
+    ServiceConfig, WebResponseError, delete,
+    error::{ErrorBadRequest, ErrorInternalServerError},
+    get, patch, post,
+    types::{Json, Path, State},
 };
 use sea_orm::{ActiveModelTrait, EntityTrait, SqlErr};
 use serde::Deserialize;
