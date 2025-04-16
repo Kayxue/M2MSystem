@@ -75,7 +75,7 @@ async fn get_sensor(
     }
 }
 
-#[get("/{id}/dataContainer")]
+#[get("/{id}/data_container")]
 async fn get_sensor_data_container(
     state: State<AppState>,
     params: Path<RUDSensorParams>,
