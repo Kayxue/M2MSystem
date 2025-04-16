@@ -142,6 +142,7 @@ pub fn addHomeRoute(cfg: &mut ServiceConfig) {
     cfg.service(createHome)
         .service(getHome)
         .service(getHomes)
+        .service(getHomeApplication)
         .service(updateHome)
         .service(deleteHome);
 }
