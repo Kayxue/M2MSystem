@@ -5,7 +5,7 @@ use ntex::web::{
     get, patch, post,
     types::{Json, Path, State},
 };
-use sea_orm::{ActiveModelTrait, EntityTrait, SqlErr};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, SqlErr};
 use serde::Deserialize;
 
 use crate::AppState;
@@ -75,6 +75,28 @@ async fn getSensor(
     }
 }
 
+#[get("/{id}/dataContainer")]
+async fn getSensorDataContainer(
+    state: State<AppState>,
+    params: Path<RUDSensorParams>,
+) -> Result<Json<Vec<data_container::Model>>, impl WebResponseError> {
+    let RUDSensorParams { id } = params.into_inner();
+
+    if let Ok(dataContainer) = Sensor::find()
+        .find_with_related(DataContainer)
+        .filter(sensor::Column::Id.eq(id))
+        .all(&state.db)
+        .await
+    {
+        if let Some(sensor) = dataContainer.first() {
+            return Ok(Json(sensor.1.clone()));
+        }
+        Err(ErrorBadRequest("Can't find sensor"))
+    } else {
+        Err(ErrorBadRequest("Query Failed"))
+    }
+}
+
 #[patch("/{id}")]
 async fn updateSensor(
     state: State<AppState>,
@@ -123,6 +145,7 @@ async fn deleteSensor(
 pub fn addSensorRoute(cfg: &mut ServiceConfig) {
     cfg.service(createSensor)
         .service(getSensor)
+        .service(getSensorDataContainer)
         .service(updateSensor)
         .service(deleteSensor);
 }
