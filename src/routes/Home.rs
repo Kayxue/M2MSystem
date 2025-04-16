@@ -1,8 +1,8 @@
 use nanoid::nanoid;
 use ntex::web::error::{ErrorBadRequest, ErrorInternalServerError};
 use ntex::web::types::{Json, Path, State};
-use ntex::web::{self, ServiceConfig, WebResponseError, delete, get, patch, post, resource};
-use sea_orm::{ActiveModelTrait, EntityTrait};
+use ntex::web::{ServiceConfig, WebResponseError, delete, get, patch, post};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter};
 
 use crate::AppState;
 use crate::entities::{prelude::*, *};
@@ -17,6 +17,11 @@ pub struct HomeCU {
 #[derive(Deserialize)]
 pub struct HomeParams {
     pub id: String,
+}
+
+#[derive(Deserialize)]
+struct RHomeApplicationParams {
+    homeId: String,
 }
 
 #[post("")]
@@ -64,6 +69,27 @@ pub async fn getHome(
             eprintln!("Error fetching home: {:?}", e);
             Err(ErrorInternalServerError("Home not found"))
         }
+    }
+}
+
+#[get("/{homeId}/applications")]
+pub async fn getHomeApplication(
+    state: State<AppState>,
+    params: Path<RHomeApplicationParams>,
+) -> Result<Json<Vec<application::Model>>, impl WebResponseError> {
+    let RHomeApplicationParams { homeId } = params.into_inner();
+    if let Ok(home_application) = Home::find()
+        .find_with_related(Application)
+        .filter(home::Column::Id.eq(homeId))
+        .all(&state.db)
+        .await
+    {
+        if let Some(home) = home_application.first() {
+            return Ok(Json(home.1.clone()));
+        }
+        Err(ErrorBadRequest("Home not found"))
+    } else {
+        Err(ErrorInternalServerError("Query failed"))
     }
 }
 

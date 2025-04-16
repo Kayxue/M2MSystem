@@ -20,34 +20,8 @@ struct ApplicationUpdate {
 }
 
 #[derive(Deserialize)]
-struct RHomeApplicationParams {
-    homeId: String,
-}
-
-#[derive(Deserialize)]
 struct RUDApplicationParams {
     id: String,
-}
-
-#[get("/application/getHomeApplication/{homeId}")]
-pub async fn getHomeApplication(
-    state: State<AppState>,
-    params: Path<RHomeApplicationParams>,
-) -> Result<Json<Vec<application::Model>>, impl WebResponseError> {
-    let RHomeApplicationParams { homeId } = params.into_inner();
-    if let Ok(home_application) = Home::find()
-        .find_with_related(Application)
-        .filter(home::Column::Id.eq(homeId))
-        .all(&state.db)
-        .await
-    {
-        if let Some(home) = home_application.first() {
-            return Ok(Json(home.1.clone()));
-        }
-        Err(ErrorBadRequest("Home not found"))
-    } else {
-        Err(ErrorInternalServerError("Query failed"))
-    }
 }
 
 #[post("/application")]
