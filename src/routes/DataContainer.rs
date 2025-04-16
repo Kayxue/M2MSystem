@@ -5,7 +5,7 @@ use ntex::web::{
     get, post,
     types::{Json, Path, State},
 };
-use sea_orm::{ActiveModelTrait, EntityTrait, SqlErr};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, SqlErr};
 use serde::Deserialize;
 
 use crate::AppState;
@@ -64,6 +64,44 @@ async fn get_data_container(
     }
 }
 
+#[get("/{id}/sensorDatas")]
+async fn get_sensor_data(
+    state: State<AppState>,
+    params: Path<RDDataContainerParams>,
+) -> Result<Json<Vec<sensor_data::Model>>, impl WebResponseError> {
+    let RDDataContainerParams { id } = params.into_inner();
+    match SensorData::find()
+        .filter(sensor_data::Column::ContainerId.eq(id))
+        .all(&state.db)
+        .await
+    {
+        Ok(entities) => Ok(Json(entities)),
+        Err(e) => {
+            eprintln!("Error fetching sensor data: {:?}", e);
+            Err(ErrorInternalServerError("Query failed"))
+        }
+    }
+}
+
+#[get("/{id}/subsribers")]
+async fn get_subscribers(
+    state: State<AppState>,
+    params: Path<RDDataContainerParams>,
+) -> Result<Json<Vec<subscribers::Model>>, impl WebResponseError> {
+    let RDDataContainerParams { id } = params.into_inner();
+    match Subscribers::find()
+        .filter(subscribers::Column::ContainerId.eq(id))
+        .all(&state.db)
+        .await
+    {
+        Ok(entities) => Ok(Json(entities)),
+        Err(e) => {
+            eprintln!("Error fetching subscribers: {:?}", e);
+            Err(ErrorInternalServerError("Query failed"))
+        }
+    }
+}
+
 #[delete("/{id}")]
 async fn delete_data_container(
     state: State<AppState>,
@@ -83,5 +121,7 @@ async fn delete_data_container(
 pub fn add_data_container_routes(cfg: &mut ServiceConfig) {
     cfg.service(create_data_container)
         .service(get_data_container)
+        .service(get_sensor_data)
+        .service(get_subscribers)
         .service(delete_data_container);
 }
