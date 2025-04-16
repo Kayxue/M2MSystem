@@ -2,7 +2,7 @@ use nanoid::nanoid;
 use ntex::web::error::{ErrorBadRequest, ErrorInternalServerError};
 use ntex::web::types::{Json, Path, State};
 use ntex::web::{ServiceConfig, WebResponseError, delete, get, patch, post};
-use sea_orm::{ActiveModelTrait, EntityTrait, SqlErr};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, SqlErr};
 use serde::Deserialize;
 
 use crate::AppState;
@@ -67,6 +67,22 @@ async fn get_application(
     }
 }
 
+#[get("/{id}/sensors")]
+async fn get_application_sensors(
+    state: State<AppState>,
+    params: Path<RUDApplicationParams>,
+) -> Result<Json<Vec<sensor::Model>>, impl WebResponseError> {
+    let RUDApplicationParams { id } = params.into_inner();
+
+    match Sensor::find().filter(sensor::Column::ApplicationId.eq(id)).all(&state.db).await {
+        Ok(sensors) => Ok(Json(sensors)),
+        Err(e) => {
+            eprintln!("Error fetching sensors: {:?}", e);
+            Err(ErrorInternalServerError("Failed to fetch sensors"))
+        }
+    }
+}
+
 #[patch("/{id}")]
 async fn update_application(
     state: State<AppState>,
@@ -113,6 +129,7 @@ async fn delete_application(
 pub fn add_application_route(cfg: &mut ServiceConfig) {
     cfg.service(add_application)
         .service(get_application)
+        .service(get_application_sensors)
         .service(update_application)
         .service(delete_application);
 }

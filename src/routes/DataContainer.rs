@@ -1,8 +1,8 @@
 use nanoid::nanoid;
 use ntex::web::error::{ErrorBadRequest, ErrorInternalServerError};
-use ntex::web::types::{Json, State};
-use ntex::web::{WebResponseError, post};
-use sea_orm::{ActiveModelTrait, SqlErr};
+use ntex::web::types::{Json, Path, State};
+use ntex::web::{ServiceConfig, WebResponseError, delete, get, post, scope};
+use sea_orm::{ActiveModelTrait, EntityTrait, SqlErr};
 use serde::Deserialize;
 
 use crate::AppState;
@@ -14,12 +14,7 @@ struct DataContainerCreate {
 }
 
 #[derive(Deserialize)]
-struct DataContainerUpdate {
-    pub name: String,
-}
-
-#[derive(Deserialize)]
-struct RUDDataContainerParams {
+struct RDDataContainerParams {
     id: String,
 }
 
@@ -48,4 +43,42 @@ async fn create_data_container(
             }
         },
     }
+}
+
+#[get("/{id}")]
+async fn get_data_container(
+    state: State<AppState>,
+    params: Path<RDDataContainerParams>,
+) -> Result<Json<data_container::Model>, impl WebResponseError> {
+    let RDDataContainerParams { id } = params.into_inner();
+    match DataContainer::find_by_id(id).one(&state.db).await {
+        Ok(Some(entity)) => Ok(Json(entity)),
+        Ok(None) => Err(ErrorBadRequest("Data container not found")),
+        Err(e) => {
+            eprintln!("Error fetching data container: {:?}", e);
+            Err(ErrorInternalServerError("Query failed"))
+        }
+    }
+}
+
+#[delete("/{id}")]
+async fn delete_data_container(
+    state: State<AppState>,
+    params: Path<RDDataContainerParams>,
+) -> Result<&'static str, impl WebResponseError> {
+    let RDDataContainerParams { id } = params.into_inner();
+
+    match DataContainer::delete_by_id(id).exec(&state.db).await {
+        Ok(_) => Ok("Data container deleted"),
+        Err(e) => {
+            eprintln!("Error deleting data container: {:?}", e);
+            Err(ErrorInternalServerError("Query failed"))
+        }
+    }
+}
+
+pub fn add_data_container_routes(cfg: &mut ServiceConfig) {
+    cfg.service(create_data_container)
+        .service(get_data_container)
+        .service(delete_data_container);
 }

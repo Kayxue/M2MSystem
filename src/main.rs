@@ -3,7 +3,7 @@ use ntex::{
     main,
     web::{self, App, HttpServer, get},
 };
-use routes::{Application::add_application_route, Home::add_home_route, Sensor::add_sensor_route};
+use routes::{Application::add_application_route, Home::add_home_route, Sensor::add_sensor_route, DataContainer::add_data_container_routes};
 use sea_orm::{Database, DatabaseConnection};
 use std::env;
 
@@ -41,6 +41,7 @@ async fn main() -> std::io::Result<()> {
             .service(web::scope("/home").configure(add_home_route))
             .service(web::scope("/application").configure(add_application_route))
             .service(web::scope("/sensor").configure(add_sensor_route))
+            .service(web::scope("/data_container").configure(add_data_container_routes))
     })
     .bind(("0.0.0.0", 3000))?
     .run()
