@@ -25,7 +25,7 @@ struct RUDApplicationParams {
 }
 
 #[post("")]
-async fn addApplication(
+async fn add_application(
     state: State<AppState>,
     body: Json<ApplicationCreate>,
 ) -> Result<Json<application::Model>, impl WebResponseError> {
@@ -51,7 +51,7 @@ async fn addApplication(
 }
 
 #[get("/{id}")]
-async fn getApplication(
+async fn get_application(
     state: State<AppState>,
     params: Path<RUDApplicationParams>,
 ) -> Result<Json<application::Model>, impl WebResponseError> {
@@ -68,7 +68,7 @@ async fn getApplication(
 }
 
 #[patch("/{id}")]
-async fn updateApplication(
+async fn update_application(
     state: State<AppState>,
     params: Path<RUDApplicationParams>,
     body: Json<ApplicationUpdate>,
@@ -95,7 +95,7 @@ async fn updateApplication(
 }
 
 #[delete("/{id}")]
-async fn deleteApplication(
+async fn delete_application(
     state: State<AppState>,
     params: Path<RUDApplicationParams>,
 ) -> Result<&'static str, impl WebResponseError> {
@@ -110,9 +110,9 @@ async fn deleteApplication(
     }
 }
 
-pub fn addApplicationRoute(cfg: &mut ServiceConfig) {
-    cfg.service(addApplication)
-        .service(getApplication)
-        .service(updateApplication)
-        .service(deleteApplication);
+pub fn add_application_route(cfg: &mut ServiceConfig) {
+    cfg.service(add_application)
+        .service(get_application)
+        .service(update_application)
+        .service(delete_application);
 }

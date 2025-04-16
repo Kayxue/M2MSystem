@@ -28,7 +28,7 @@ struct RUDSensorParams {
 }
 
 #[post("")]
-async fn createSensor(
+async fn create_sensor(
     state: State<AppState>,
     body: Json<SensorCreate>,
 ) -> Result<Json<sensor::Model>, impl WebResponseError> {
@@ -37,14 +37,14 @@ async fn createSensor(
         application_id,
     } = body.into_inner();
 
-    let newSensor = sensor::ActiveModel {
+    let new_sensor = sensor::ActiveModel {
         id: sea_orm::ActiveValue::Set(nanoid!(10)),
         name: sea_orm::ActiveValue::Set(name.to_owned()),
         application_id: sea_orm::ActiveValue::Set(application_id.to_owned()),
         ..Default::default()
     };
 
-    match newSensor.insert(&state.db).await {
+    match new_sensor.insert(&state.db).await {
         Ok(entity) => Ok(Json(entity)),
         Err(e) => match e.sql_err() {
             Some(SqlErr::ForeignKeyConstraintViolation(_)) => {
@@ -59,7 +59,7 @@ async fn createSensor(
 }
 
 #[get("/{id}")]
-async fn getSensor(
+async fn get_sensor(
     state: State<AppState>,
     params: Path<RUDSensorParams>,
 ) -> Result<Json<sensor::Model>, impl WebResponseError> {
@@ -76,19 +76,19 @@ async fn getSensor(
 }
 
 #[get("/{id}/dataContainer")]
-async fn getSensorDataContainer(
+async fn get_sensor_data_container(
     state: State<AppState>,
     params: Path<RUDSensorParams>,
 ) -> Result<Json<Vec<data_container::Model>>, impl WebResponseError> {
     let RUDSensorParams { id } = params.into_inner();
 
-    if let Ok(dataContainer) = Sensor::find()
+    if let Ok(data_container) = Sensor::find()
         .find_with_related(DataContainer)
         .filter(sensor::Column::Id.eq(id))
         .all(&state.db)
         .await
     {
-        if let Some(sensor) = dataContainer.first() {
+        if let Some(sensor) = data_container.first() {
             return Ok(Json(sensor.1.clone()));
         }
         Err(ErrorBadRequest("Can't find sensor"))
@@ -98,7 +98,7 @@ async fn getSensorDataContainer(
 }
 
 #[patch("/{id}")]
-async fn updateSensor(
+async fn update_sensor(
     state: State<AppState>,
     params: Path<RUDSensorParams>,
     body: Json<SensorUpdate>,
@@ -127,7 +127,7 @@ async fn updateSensor(
 }
 
 #[delete("/{id}")]
-async fn deleteSensor(
+async fn delete_sensor(
     state: State<AppState>,
     params: Path<RUDSensorParams>,
 ) -> Result<&'static str, impl WebResponseError> {
@@ -142,10 +142,10 @@ async fn deleteSensor(
     }
 }
 
-pub fn addSensorRoute(cfg: &mut ServiceConfig) {
-    cfg.service(createSensor)
-        .service(getSensor)
-        .service(getSensorDataContainer)
-        .service(updateSensor)
-        .service(deleteSensor);
+pub fn add_sensor_route(cfg: &mut ServiceConfig) {
+    cfg.service(create_sensor)
+        .service(get_sensor)
+        .service(get_sensor_data_container)
+        .service(update_sensor)
+        .service(delete_sensor);
 }

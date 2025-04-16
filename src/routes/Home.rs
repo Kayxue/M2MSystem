@@ -21,21 +21,21 @@ struct HomeParams {
 
 #[derive(Deserialize)]
 struct RHomeApplicationParams {
-    homeId: String,
+    home_id: String,
 }
 
 #[post("")]
-async fn createHome(
+async fn create_home(
     state: State<AppState>,
     body: Json<HomeCU>,
 ) -> Result<Json<home::Model>, impl WebResponseError> {
-    let newHome = home::ActiveModel {
+    let new_home = home::ActiveModel {
         id: sea_orm::ActiveValue::Set(nanoid!(10)),
         name: sea_orm::ActiveValue::Set(body.name.clone()),
         ..Default::default()
     };
 
-    if let Ok(entity) = newHome.insert(&state.db).await {
+    if let Ok(entity) = new_home.insert(&state.db).await {
         Ok(Json(entity))
     } else {
         Err(ErrorInternalServerError("Failed to create home"))
@@ -43,7 +43,7 @@ async fn createHome(
 }
 
 #[get("")]
-async fn getHomes(state: State<AppState>) -> Result<Json<Vec<home::Model>>, impl WebResponseError> {
+async fn get_homes(state: State<AppState>) -> Result<Json<Vec<home::Model>>, impl WebResponseError> {
     match Home::find().all(&state.db).await {
         Ok(homes) => Ok(Json(homes)),
         Err(e) => {
@@ -54,7 +54,7 @@ async fn getHomes(state: State<AppState>) -> Result<Json<Vec<home::Model>>, impl
 }
 
 #[get("/{id}")]
-async fn getHome(
+async fn get_home(
     state: State<AppState>,
     params: Path<HomeParams>,
 ) -> Result<Json<home::Model>, impl WebResponseError> {
@@ -71,14 +71,14 @@ async fn getHome(
 }
 
 #[get("/{homeId}/applications")]
-async fn getHomeApplication(
+async fn get_home_application(
     state: State<AppState>,
     params: Path<RHomeApplicationParams>,
 ) -> Result<Json<Vec<application::Model>>, impl WebResponseError> {
-    let RHomeApplicationParams { homeId } = params.into_inner();
+    let RHomeApplicationParams { home_id } = params.into_inner();
     if let Ok(home_application) = Home::find()
         .find_with_related(Application)
-        .filter(home::Column::Id.eq(homeId))
+        .filter(home::Column::Id.eq(home_id))
         .all(&state.db)
         .await
     {
@@ -92,7 +92,7 @@ async fn getHomeApplication(
 }
 
 #[patch("/{id}")]
-async fn updateHome(
+async fn update_home(
     state: State<AppState>,
     params: Path<HomeParams>,
     body: Json<HomeCU>,
@@ -121,7 +121,7 @@ async fn updateHome(
 }
 
 #[delete("/{id}")]
-async fn deleteHome(
+async fn delete_home(
     state: State<AppState>,
     params: Path<HomeParams>,
 ) -> Result<&'static str, impl WebResponseError> {
@@ -136,11 +136,11 @@ async fn deleteHome(
     }
 }
 
-pub fn addHomeRoute(cfg: &mut ServiceConfig) {
-    cfg.service(createHome)
-        .service(getHome)
-        .service(getHomes)
-        .service(getHomeApplication)
-        .service(updateHome)
-        .service(deleteHome);
+pub fn add_home_route(cfg: &mut ServiceConfig) {
+    cfg.service(create_home)
+        .service(get_home)
+        .service(get_homes)
+        .service(get_home_application)
+        .service(update_home)
+        .service(delete_home);
 }
