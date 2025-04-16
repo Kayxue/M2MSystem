@@ -3,6 +3,7 @@ use ntex::{
     main,
     web::{self, App, HttpServer, get},
 };
+use ntex_cors::Cors;
 use redis::Client;
 use routes::{
     Application::add_application_route, DataContainer::add_data_container_routes,
@@ -50,6 +51,7 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
+            .wrap(Cors::default())
             .state(app_state.clone())
             .service(root)
             .service(web::scope("/home").configure(add_home_route))
