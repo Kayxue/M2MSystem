@@ -1,7 +1,10 @@
 use nanoid::nanoid;
-use ntex::web::error::{ErrorBadRequest, ErrorInternalServerError};
-use ntex::web::types::{Json, Path, State};
-use ntex::web::{ServiceConfig, WebResponseError, delete, get, patch, post};
+use ntex::web::{
+    ServiceConfig, WebResponseError, delete,
+    error::{ErrorBadRequest, ErrorInternalServerError},
+    get, patch, post,
+    types::{Json, Path, State},
+};
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, SqlErr};
 use serde::Deserialize;
 
@@ -74,7 +77,11 @@ async fn get_application_sensors(
 ) -> Result<Json<Vec<sensor::Model>>, impl WebResponseError> {
     let RUDApplicationParams { id } = params.into_inner();
 
-    match Sensor::find().filter(sensor::Column::ApplicationId.eq(id)).all(&state.db).await {
+    match Sensor::find()
+        .filter(sensor::Column::ApplicationId.eq(id))
+        .all(&state.db)
+        .await
+    {
         Ok(sensors) => Ok(Json(sensors)),
         Err(e) => {
             eprintln!("Error fetching sensors: {:?}", e);

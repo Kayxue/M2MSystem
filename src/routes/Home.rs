@@ -1,7 +1,10 @@
 use nanoid::nanoid;
-use ntex::web::error::{ErrorBadRequest, ErrorInternalServerError};
-use ntex::web::types::{Json, Path, State};
-use ntex::web::{ServiceConfig, WebResponseError, delete, get, patch, post};
+use ntex::web::{
+    ServiceConfig, WebResponseError, delete,
+    error::{ErrorBadRequest, ErrorInternalServerError},
+    get, patch, post,
+    types::{Json, Path, State},
+};
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter};
 
 use crate::AppState;
@@ -43,7 +46,9 @@ async fn create_home(
 }
 
 #[get("")]
-async fn get_homes(state: State<AppState>) -> Result<Json<Vec<home::Model>>, impl WebResponseError> {
+async fn get_homes(
+    state: State<AppState>,
+) -> Result<Json<Vec<home::Model>>, impl WebResponseError> {
     match Home::find().all(&state.db).await {
         Ok(homes) => Ok(Json(homes)),
         Err(e) => {
