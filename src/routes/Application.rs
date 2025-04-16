@@ -1,7 +1,7 @@
 use nanoid::nanoid;
 use ntex::web::error::{ErrorBadRequest, ErrorInternalServerError};
 use ntex::web::types::{Json, Path, State};
-use ntex::web::{WebResponseError, delete, get, patch, post};
+use ntex::web::{ServiceConfig, WebResponseError, delete, get, patch, post};
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, SqlErr};
 use serde::Deserialize;
 
@@ -24,7 +24,7 @@ struct RUDApplicationParams {
     id: String,
 }
 
-#[post("/application")]
+#[post("")]
 pub async fn addApplication(
     state: State<AppState>,
     body: Json<ApplicationCreate>,
@@ -50,7 +50,7 @@ pub async fn addApplication(
     }
 }
 
-#[get("/application/{id}")]
+#[get("/{id}")]
 pub async fn getApplication(
     state: State<AppState>,
     params: Path<RUDApplicationParams>,
@@ -67,7 +67,7 @@ pub async fn getApplication(
     }
 }
 
-#[patch("/application/{id}")]
+#[patch("/{id}")]
 pub async fn updateApplication(
     state: State<AppState>,
     params: Path<RUDApplicationParams>,
@@ -94,7 +94,7 @@ pub async fn updateApplication(
     }
 }
 
-#[delete("/application/{id}")]
+#[delete("/{id}")]
 pub async fn deleteApplication(
     state: State<AppState>,
     params: Path<RUDApplicationParams>,
@@ -108,4 +108,11 @@ pub async fn deleteApplication(
             Err(ErrorInternalServerError("Failed to fetch application"))
         }
     }
+}
+
+pub fn addApplicationRoute(cfg: &mut ServiceConfig) {
+    cfg.service(addApplication)
+        .service(getApplication)
+        .service(updateApplication)
+        .service(deleteApplication);
 }

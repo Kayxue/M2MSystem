@@ -3,7 +3,7 @@ use ntex::{
     main,
     web::{self, App, HttpServer, get},
 };
-use routes::Home::{addHomeRoute, createHome, deleteHome, getHome, getHomes, updateHome};
+use routes::{Application::addApplicationRoute, Home::addHomeRoute};
 use sea_orm::{Database, DatabaseConnection};
 use std::env;
 
@@ -39,6 +39,7 @@ async fn main() -> std::io::Result<()> {
             .state(app_state.clone())
             .service(root)
             .service(web::scope("/home").configure(addHomeRoute))
+            .service(web::scope("/application").configure(addApplicationRoute))
     })
     .bind(("0.0.0.0", 3000))?
     .run()
