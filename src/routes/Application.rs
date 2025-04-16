@@ -5,11 +5,17 @@ use ntex::web::{
     get, patch, post,
     types::{Json, Path, State},
 };
+use redis::AsyncCommands;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, SqlErr};
 use serde::Deserialize;
 
-use crate::AppState;
-use crate::entities::{prelude::*, *};
+use crate::{AppState, utils::get_redis_id};
+use crate::{
+    entities::{prelude::*, *},
+    utils::get_redis_set_options,
+};
+
+const PREFIX: &str = "Application";
 
 #[derive(Deserialize)]
 struct ApplicationCreate {
@@ -42,7 +48,22 @@ async fn add_application(
     };
 
     match new_application.insert(&state.db).await {
-        Ok(entity) => Ok(Json(entity)),
+        Ok(entity) => {
+            let mut conn = state
+                .redis
+                .get_multiplexed_tokio_connection()
+                .await
+                .unwrap();
+            let _: () = conn
+                .set_options(
+                    get_redis_id(PREFIX, &entity.id),
+                    serde_json::to_string(&entity).unwrap(),
+                    get_redis_set_options(),
+                )
+                .await
+                .unwrap();
+            Ok(Json(entity))
+        }
         Err(e) => match e.sql_err() {
             Some(SqlErr::ForeignKeyConstraintViolation(_)) => Err(ErrorBadRequest("Query failed")),
             _ => {
@@ -60,8 +81,29 @@ async fn get_application(
 ) -> Result<Json<application::Model>, impl WebResponseError> {
     let RUDApplicationParams { id } = params.into_inner();
 
+    let mut conn = state
+        .redis
+        .get_multiplexed_tokio_connection()
+        .await
+        .unwrap();
+    if let Ok(cached) = conn.get::<_, String>(get_redis_id(PREFIX, &id)).await {
+        if let Ok(app) = serde_json::from_str::<application::Model>(&cached) {
+            return Ok(Json(app));
+        }
+    }
+
     match Application::find_by_id(id).one(&state.db).await {
-        Ok(Some(app)) => Ok(Json(app)),
+        Ok(Some(app)) => {
+            let _: () = conn
+                .set_options(
+                    get_redis_id(PREFIX, &app.id),
+                    serde_json::to_string(&app).unwrap(),
+                    get_redis_set_options(),
+                )
+                .await
+                .unwrap();
+            Ok(Json(app))
+        }
         Ok(None) => Err(ErrorBadRequest("Application not found")),
         Err(e) => {
             eprintln!("Error fetching application: {:?}", e);
@@ -104,6 +146,19 @@ async fn update_application(
             let mut application: application::ActiveModel = app.into();
             application.name = sea_orm::ActiveValue::Set(name.to_owned());
             if let Ok(entity) = application.update(&state.db).await {
+                let mut conn = state
+                    .redis
+                    .get_multiplexed_tokio_connection()
+                    .await
+                    .unwrap();
+                let _: () = conn
+                    .set_options(
+                        get_redis_id(PREFIX, &entity.id),
+                        serde_json::to_string(&entity).unwrap(),
+                        get_redis_set_options(),
+                    )
+                    .await
+                    .unwrap();
                 Ok(Json(entity))
             } else {
                 Err(ErrorInternalServerError("Failed to update application"))
@@ -124,8 +179,16 @@ async fn delete_application(
 ) -> Result<&'static str, impl WebResponseError> {
     let RUDApplicationParams { id } = params.into_inner();
 
-    match Application::delete_by_id(id).exec(&state.db).await {
-        Ok(_) => Ok("Application deleted successfully"),
+    match Application::delete_by_id(&id).exec(&state.db).await {
+        Ok(_) => {
+            let mut conn = state
+                .redis
+                .get_multiplexed_tokio_connection()
+                .await
+                .unwrap();
+            let _: () = conn.del(get_redis_id(PREFIX, &id)).await.unwrap();
+            Ok("Application deleted successfully")
+        }
         Err(e) => {
             eprintln!("Error deleting application: {:?}", e);
             Err(ErrorInternalServerError("Failed to delete application"))
