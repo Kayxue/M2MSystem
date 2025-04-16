@@ -3,6 +3,7 @@ use ntex::{
     main,
     web::{self, App, HttpServer, get},
 };
+use redis::Client;
 use routes::{
     Application::add_application_route, DataContainer::add_data_container_routes,
     Home::add_home_route, Sensor::add_sensor_route, SensorData::add_sensor_data_route,
@@ -15,9 +16,12 @@ mod entities;
 
 mod routes;
 
+mod utils;
+
 #[derive(Clone)]
 struct AppState {
     db: DatabaseConnection,
+    redis: Client,
 }
 
 #[get("/")]
@@ -36,7 +40,13 @@ async fn main() -> std::io::Result<()> {
             .await
             .expect("Failed to connect to database");
 
-    let app_state = AppState { db };
+    let redis_url = env::var("REDIS_URL").expect("REDIS_URL must be set");
+    let redis_client = Client::open(redis_url).expect("Failed to connect to Redis");
+
+    let app_state = AppState {
+        db,
+        redis: redis_client,
+    };
 
     HttpServer::new(move || {
         App::new()
