@@ -1,10 +1,10 @@
-use nanoid::nanoid;
-use ntex::web::{
-    ServiceConfig, WebResponseError, delete,
+use actix_web::{
+    Error, delete,
     error::{ErrorBadRequest, ErrorInternalServerError},
     get, post,
-    types::{Json, Path, State},
+    web::{Data, Json, Path, ServiceConfig},
 };
+use nanoid::nanoid;
 use redis::AsyncCommands;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, SqlErr};
 use serde::Deserialize;
@@ -29,9 +29,9 @@ struct RDDataContainerParams {
 
 #[post("")]
 async fn create_data_container(
-    state: State<AppState>,
+    state: Data<AppState>,
     body: Json<DataContainerCreate>,
-) -> Result<Json<data_container::Model>, impl WebResponseError> {
+) -> Result<Json<data_container::Model>, Error> {
     let DataContainerCreate { sensor_id } = body.into_inner();
 
     let new_data_container = data_container::ActiveModel {
@@ -71,9 +71,9 @@ async fn create_data_container(
 
 #[get("/{id}")]
 async fn get_data_container(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<RDDataContainerParams>,
-) -> Result<Json<data_container::Model>, impl WebResponseError> {
+) -> Result<Json<data_container::Model>, Error> {
     let RDDataContainerParams { id } = params.into_inner();
     let mut redis_conn = state
         .redis
@@ -109,9 +109,9 @@ async fn get_data_container(
 
 #[get("/{id}/sensor_data")]
 async fn get_sensor_data(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<RDDataContainerParams>,
-) -> Result<Json<Vec<sensor_data::Model>>, impl WebResponseError> {
+) -> Result<Json<Vec<sensor_data::Model>>, Error> {
     let RDDataContainerParams { id } = params.into_inner();
     match SensorData::find()
         .filter(sensor_data::Column::ContainerId.eq(id))
@@ -126,11 +126,11 @@ async fn get_sensor_data(
     }
 }
 
-#[get("/{id}/subsribers")]
+#[get("/{id}/subscribers")]
 async fn get_subscribers(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<RDDataContainerParams>,
-) -> Result<Json<Vec<subscribers::Model>>, impl WebResponseError> {
+) -> Result<Json<Vec<subscribers::Model>>, Error> {
     let RDDataContainerParams { id } = params.into_inner();
     match Subscribers::find()
         .filter(subscribers::Column::ContainerId.eq(id))
@@ -147,9 +147,9 @@ async fn get_subscribers(
 
 #[delete("/{id}")]
 async fn delete_data_container(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<RDDataContainerParams>,
-) -> Result<&'static str, impl WebResponseError> {
+) -> Result<&'static str, Error> {
     let RDDataContainerParams { id } = params.into_inner();
 
     match DataContainer::delete_by_id(&id).exec(&state.db).await {

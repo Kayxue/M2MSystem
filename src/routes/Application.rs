@@ -1,10 +1,7 @@
+use actix_web::error::{ErrorBadRequest, ErrorInternalServerError};
+use actix_web::web::{Data, Json, Path, ServiceConfig};
+use actix_web::{Error, delete, get, patch, post};
 use nanoid::nanoid;
-use ntex::web::{
-    ServiceConfig, WebResponseError, delete,
-    error::{ErrorBadRequest, ErrorInternalServerError},
-    get, patch, post,
-    types::{Json, Path, State},
-};
 use redis::AsyncCommands;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, SqlErr};
 use serde::Deserialize;
@@ -35,9 +32,9 @@ struct RUDApplicationParams {
 
 #[post("")]
 async fn add_application(
-    state: State<AppState>,
+    state: Data<AppState>,
     body: Json<ApplicationCreate>,
-) -> Result<Json<application::Model>, impl WebResponseError> {
+) -> Result<Json<application::Model>, Error> {
     let ApplicationCreate { name, home_id } = body.into_inner();
 
     let new_application = application::ActiveModel {
@@ -65,7 +62,9 @@ async fn add_application(
             Ok(Json(entity))
         }
         Err(e) => match e.sql_err() {
-            Some(SqlErr::ForeignKeyConstraintViolation(_)) => Err(ErrorBadRequest("Query failed")),
+            Some(SqlErr::ForeignKeyConstraintViolation(_)) => {
+                Err(ErrorBadRequest("Can't find home"))
+            }
             _ => {
                 eprintln!("Error creating application: {:?}", e);
                 Err(ErrorInternalServerError("Query failed"))
@@ -76,9 +75,9 @@ async fn add_application(
 
 #[get("/{id}")]
 async fn get_application(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<RUDApplicationParams>,
-) -> Result<Json<application::Model>, impl WebResponseError> {
+) -> Result<Json<application::Model>, Error> {
     let RUDApplicationParams { id } = params.into_inner();
 
     let mut conn = state
@@ -107,16 +106,16 @@ async fn get_application(
         Ok(None) => Err(ErrorBadRequest("Application not found")),
         Err(e) => {
             eprintln!("Error fetching application: {:?}", e);
-            Err(ErrorInternalServerError("Application not found"))
+            Err(ErrorInternalServerError("Failed to fetch application"))
         }
     }
 }
 
 #[get("/{id}/sensors")]
 async fn get_application_sensors(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<RUDApplicationParams>,
-) -> Result<Json<Vec<sensor::Model>>, impl WebResponseError> {
+) -> Result<Json<Vec<sensor::Model>>, Error> {
     let RUDApplicationParams { id } = params.into_inner();
 
     match Sensor::find()
@@ -134,10 +133,10 @@ async fn get_application_sensors(
 
 #[patch("/{id}")]
 async fn update_application(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<RUDApplicationParams>,
     body: Json<ApplicationUpdate>,
-) -> Result<Json<application::Model>, impl WebResponseError> {
+) -> Result<Json<application::Model>, Error> {
     let RUDApplicationParams { id } = params.into_inner();
     let ApplicationUpdate { name } = body.into_inner();
 
@@ -174,9 +173,9 @@ async fn update_application(
 
 #[delete("/{id}")]
 async fn delete_application(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<RUDApplicationParams>,
-) -> Result<&'static str, impl WebResponseError> {
+) -> Result<&'static str, Error> {
     let RUDApplicationParams { id } = params.into_inner();
 
     match Application::delete_by_id(&id).exec(&state.db).await {

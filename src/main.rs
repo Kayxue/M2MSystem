@@ -1,9 +1,6 @@
+use actix_cors::Cors;
+use actix_web::{get, main, web::{scope, Data}, App, HttpServer};
 use dotenv::dotenv;
-use ntex::{
-    main,
-    web::{self, App, HttpServer, get},
-};
-use ntex_cors::Cors;
 use redis::Client;
 use routes::{
     Application::add_application_route, DataContainer::add_data_container_routes,
@@ -52,14 +49,14 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .wrap(Cors::default())
-            .state(app_state.clone())
+            .app_data(Data::new(app_state.clone()))
             .service(root)
-            .service(web::scope("/home").configure(add_home_route))
-            .service(web::scope("/application").configure(add_application_route))
-            .service(web::scope("/sensor").configure(add_sensor_route))
-            .service(web::scope("/data_container").configure(add_data_container_routes))
-            .service(web::scope("/sensor_data").configure(add_sensor_data_route))
-            .service(web::scope("/subscribers").configure(add_subscriber_route))
+            .service(scope("/home").configure(add_home_route))
+            .service(scope("/application").configure(add_application_route))
+            .service(scope("/sensor").configure(add_sensor_route))
+            .service(scope("/data_container").configure(add_data_container_routes))
+            .service(scope("/sensor_data").configure(add_sensor_data_route))
+            .service(scope("/subscribers").configure(add_subscriber_route))
     })
     .bind(("0.0.0.0", 3000))?
     .run()

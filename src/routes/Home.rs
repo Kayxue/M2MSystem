@@ -1,13 +1,13 @@
 use crate::AppState;
 use crate::entities::{prelude::*, *};
 use crate::utils::{get_redis_id, get_redis_set_options};
-use nanoid::nanoid;
-use ntex::web::{
-    ServiceConfig, WebResponseError, delete,
+use actix_web::{
+    Error, delete,
     error::{ErrorBadRequest, ErrorInternalServerError},
     get, patch, post,
-    types::{Json, Path, State},
+    web::{Data, Json, Path, ServiceConfig},
 };
+use nanoid::nanoid;
 use redis::AsyncCommands;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter};
 use serde::Deserialize;
@@ -31,9 +31,9 @@ struct RHomeApplicationParams {
 
 #[post("")]
 async fn create_home(
-    state: State<AppState>,
+    state: Data<AppState>,
     body: Json<HomeCU>,
-) -> Result<Json<home::Model>, impl WebResponseError> {
+) -> Result<Json<home::Model>, Error> {
     let new_home = home::ActiveModel {
         id: sea_orm::ActiveValue::Set(nanoid!(10)),
         name: sea_orm::ActiveValue::Set(body.name.clone()),
@@ -61,9 +61,7 @@ async fn create_home(
 }
 
 #[get("")]
-async fn get_homes(
-    state: State<AppState>,
-) -> Result<Json<Vec<home::Model>>, impl WebResponseError> {
+async fn get_homes(state: Data<AppState>) -> Result<Json<Vec<home::Model>>, Error> {
     match Home::find().all(&state.db).await {
         Ok(homes) => Ok(Json(homes)),
         Err(e) => {
@@ -75,9 +73,9 @@ async fn get_homes(
 
 #[get("/{id}")]
 async fn get_home(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<HomeParams>,
-) -> Result<Json<home::Model>, impl WebResponseError> {
+) -> Result<Json<home::Model>, Error> {
     let HomeParams { id } = params.into_inner();
 
     let mut redis_conn = state
@@ -106,16 +104,16 @@ async fn get_home(
         Ok(None) => Err(ErrorBadRequest("Home not found")),
         Err(e) => {
             eprintln!("Error fetching home: {:?}", e);
-            Err(ErrorInternalServerError("Home not found"))
+            Err(ErrorInternalServerError("Error fetching home"))
         }
     }
 }
 
 #[get("/{home_id}/applications")]
 async fn get_home_application(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<RHomeApplicationParams>,
-) -> Result<Json<Vec<application::Model>>, impl WebResponseError> {
+) -> Result<Json<Vec<application::Model>>, Error> {
     let RHomeApplicationParams { home_id } = params.into_inner();
     if let Ok(home_application) = Home::find()
         .find_with_related(Application)
@@ -134,10 +132,10 @@ async fn get_home_application(
 
 #[patch("/{id}")]
 async fn update_home(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<HomeParams>,
     body: Json<HomeCU>,
-) -> Result<Json<home::Model>, impl WebResponseError> {
+) -> Result<Json<home::Model>, Error> {
     let HomeParams { id } = params.into_inner();
     let HomeCU { name } = body.into_inner();
 
@@ -178,9 +176,9 @@ async fn update_home(
 
 #[delete("/{id}")]
 async fn delete_home(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<HomeParams>,
-) -> Result<&'static str, impl WebResponseError> {
+) -> Result<&'static str, Error> {
     let HomeParams { id } = params.into_inner();
 
     match Home::delete_by_id(&id).exec(&state.db).await {

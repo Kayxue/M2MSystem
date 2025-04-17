@@ -1,10 +1,10 @@
-use nanoid::nanoid;
-use ntex::web::{
-    ServiceConfig, WebResponseError, delete,
+use actix_web::{
+    Error, delete,
     error::{ErrorBadRequest, ErrorInternalServerError},
     get, patch, post,
-    types::{Json, Path, State},
+    web::{Data, Json, Path, ServiceConfig},
 };
+use nanoid::nanoid;
 use redis::AsyncCommands;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, SqlErr};
 use serde::Deserialize;
@@ -35,9 +35,9 @@ struct RUDSensorParams {
 
 #[post("")]
 async fn create_sensor(
-    state: State<AppState>,
+    state: Data<AppState>,
     body: Json<SensorCreate>,
-) -> Result<Json<sensor::Model>, impl WebResponseError> {
+) -> Result<Json<sensor::Model>, Error> {
     let SensorCreate {
         name,
         application_id,
@@ -81,9 +81,9 @@ async fn create_sensor(
 
 #[get("/{id}")]
 async fn get_sensor(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<RUDSensorParams>,
-) -> Result<Json<sensor::Model>, impl WebResponseError> {
+) -> Result<Json<sensor::Model>, Error> {
     let RUDSensorParams { id } = params.into_inner();
 
     let mut redis_conn = state
@@ -120,9 +120,9 @@ async fn get_sensor(
 
 #[get("/{id}/data_container")]
 async fn get_sensor_data_container(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<RUDSensorParams>,
-) -> Result<Json<Vec<data_container::Model>>, impl WebResponseError> {
+) -> Result<Json<Vec<data_container::Model>>, Error> {
     let RUDSensorParams { id } = params.into_inner();
 
     if let Ok(data_container) = Sensor::find()
@@ -142,10 +142,10 @@ async fn get_sensor_data_container(
 
 #[patch("/{id}")]
 async fn update_sensor(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<RUDSensorParams>,
     body: Json<SensorUpdate>,
-) -> Result<Json<sensor::Model>, impl WebResponseError> {
+) -> Result<Json<sensor::Model>, Error> {
     let RUDSensorParams { id } = params.into_inner();
     let SensorUpdate { name } = body.into_inner();
 
@@ -186,9 +186,9 @@ async fn update_sensor(
 
 #[delete("/{id}")]
 async fn delete_sensor(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<RUDSensorParams>,
-) -> Result<&'static str, impl WebResponseError> {
+) -> Result<&'static str, Error> {
     let RUDSensorParams { id } = params.into_inner();
 
     match Sensor::delete_by_id(&id).exec(&state.db).await {

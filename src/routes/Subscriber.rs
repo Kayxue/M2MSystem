@@ -1,10 +1,10 @@
-use nanoid::nanoid;
-use ntex::web::{
-    ServiceConfig, WebResponseError, delete,
+use actix_web::{
+    Error, delete,
     error::{ErrorBadRequest, ErrorInternalServerError},
     get, patch, post,
-    types::{Json, Path, State},
+    web::{Data, Json, Path, ServiceConfig},
 };
+use nanoid::nanoid;
 use sea_orm::{ActiveModelTrait, EntityTrait, SqlErr};
 use serde::Deserialize;
 
@@ -29,9 +29,9 @@ struct RUDSubscriberParams {
 
 #[post("")]
 async fn create_subscriber(
-    state: State<AppState>,
+    state: Data<AppState>,
     body: Json<SubscriberCreate>,
-) -> Result<Json<subscribers::Model>, impl WebResponseError> {
+) -> Result<Json<subscribers::Model>, Error> {
     let SubscriberCreate {
         container_id,
         notification_url,
@@ -60,9 +60,9 @@ async fn create_subscriber(
 
 #[get("/{id}")]
 async fn get_subscriber(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<RUDSubscriberParams>,
-) -> Result<Json<subscribers::Model>, impl WebResponseError> {
+) -> Result<Json<subscribers::Model>, Error> {
     let RUDSubscriberParams { id } = params.into_inner();
     match Subscribers::find_by_id(id).one(&state.db).await {
         Ok(Some(entity)) => Ok(Json(entity)),
@@ -76,10 +76,10 @@ async fn get_subscriber(
 
 #[patch("/{id}")]
 async fn update_subscriber(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<RUDSubscriberParams>,
     body: Json<SubscriberUpdate>,
-) -> Result<Json<subscribers::Model>, impl WebResponseError> {
+) -> Result<Json<subscribers::Model>, Error> {
     let RUDSubscriberParams { id } = params.into_inner();
     let SubscriberUpdate { notification_url } = body.into_inner();
 
@@ -105,9 +105,9 @@ async fn update_subscriber(
 
 #[delete("/{id}")]
 async fn delete_subscriber(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<RUDSubscriberParams>,
-) -> Result<&'static str, impl WebResponseError> {
+) -> Result<&'static str, Error> {
     let RUDSubscriberParams { id } = params.into_inner();
 
     match Subscribers::delete_by_id(id).exec(&state.db).await {

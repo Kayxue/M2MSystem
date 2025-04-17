@@ -1,10 +1,10 @@
-use nanoid::nanoid;
-use ntex::web::{
-    ServiceConfig, WebResponseError, delete,
+use actix_web::{
+    Error, delete,
     error::{ErrorBadRequest, ErrorInternalServerError},
     get, patch, post,
-    types::{Json, Path, State},
+    web::{Data, Json, Path, ServiceConfig},
 };
+use nanoid::nanoid;
 use sea_orm::{ActiveModelTrait, EntityTrait, SqlErr};
 use serde::Deserialize;
 use serde_json::Value;
@@ -30,9 +30,9 @@ struct RUDSensorDataParams {
 
 #[post("")]
 async fn create_sensor_data(
-    state: State<AppState>,
+    state: Data<AppState>,
     body: Json<SensorDataCreate>,
-) -> Result<Json<sensor_data::Model>, impl WebResponseError> {
+) -> Result<Json<sensor_data::Model>, Error> {
     let SensorDataCreate { container_id, data } = body.into_inner();
 
     let new_sensor_data = sensor_data::ActiveModel {
@@ -58,9 +58,9 @@ async fn create_sensor_data(
 
 #[get("/{id}")]
 async fn get_sensor_data(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<RUDSensorDataParams>,
-) -> Result<Json<sensor_data::Model>, impl WebResponseError> {
+) -> Result<Json<sensor_data::Model>, Error> {
     let RUDSensorDataParams { id } = params.into_inner();
 
     match SensorData::find_by_id(id).one(&state.db).await {
@@ -75,10 +75,10 @@ async fn get_sensor_data(
 
 #[patch("/{id}")]
 async fn update_sensor_data(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<RUDSensorDataParams>,
     body: Json<SensorDataUpdate>,
-) -> Result<Json<sensor_data::Model>, impl WebResponseError> {
+) -> Result<Json<sensor_data::Model>, Error> {
     let RUDSensorDataParams { id } = params.into_inner();
     let SensorDataUpdate { data } = body.into_inner();
 
@@ -105,9 +105,9 @@ async fn update_sensor_data(
 
 #[delete("/{id}")]
 async fn delete_sensor_data(
-    state: State<AppState>,
+    state: Data<AppState>,
     params: Path<RUDSensorDataParams>,
-) -> Result<&'static str, impl WebResponseError> {
+) -> Result<&'static str, Error> {
     let RUDSensorDataParams { id } = params.into_inner();
 
     match SensorData::delete_by_id(id).exec(&state.db).await {
