@@ -5,11 +5,17 @@ use ntex::web::{
     get, post,
     types::{Json, Path, State},
 };
+use redis::AsyncCommands;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, SqlErr};
 use serde::Deserialize;
 
-use crate::AppState;
 use crate::entities::{prelude::*, *};
+use crate::{
+    AppState,
+    utils::{get_redis_id, get_redis_set_options},
+};
+
+const PREFIX: &str = "DataContainer";
 
 #[derive(Deserialize)]
 struct DataContainerCreate {
@@ -35,7 +41,22 @@ async fn create_data_container(
     };
 
     match new_data_container.insert(&state.db).await {
-        Ok(entity) => Ok(Json(entity)),
+        Ok(entity) => {
+            let mut redis_conn = state
+                .redis
+                .get_multiplexed_tokio_connection()
+                .await
+                .unwrap();
+            let _: () = redis_conn
+                .set_options(
+                    get_redis_id(PREFIX, &entity.id),
+                    serde_json::to_string(&entity).unwrap(),
+                    get_redis_set_options(),
+                )
+                .await
+                .unwrap();
+            Ok(Json(entity))
+        }
         Err(e) => match e.sql_err() {
             Some(SqlErr::ForeignKeyConstraintViolation(_)) => {
                 Err(ErrorBadRequest("Can't find sensor"))
@@ -54,8 +75,30 @@ async fn get_data_container(
     params: Path<RDDataContainerParams>,
 ) -> Result<Json<data_container::Model>, impl WebResponseError> {
     let RDDataContainerParams { id } = params.into_inner();
-    match DataContainer::find_by_id(id).one(&state.db).await {
-        Ok(Some(entity)) => Ok(Json(entity)),
+    let mut redis_conn = state
+        .redis
+        .get_multiplexed_tokio_connection()
+        .await
+        .unwrap();
+
+    if let Ok(cached_data) = redis_conn.get::<_, String>(get_redis_id(PREFIX, &id)).await {
+        if let Ok(entity) = serde_json::from_str::<data_container::Model>(&cached_data) {
+            return Ok(Json(entity));
+        }
+    }
+
+    match DataContainer::find_by_id(&id).one(&state.db).await {
+        Ok(Some(entity)) => {
+            let _: () = redis_conn
+                .set_options(
+                    get_redis_id(PREFIX, &id),
+                    serde_json::to_string(&entity).unwrap(),
+                    get_redis_set_options(),
+                )
+                .await
+                .unwrap();
+            Ok(Json(entity))
+        }
         Ok(None) => Err(ErrorBadRequest("Data container not found")),
         Err(e) => {
             eprintln!("Error fetching data container: {:?}", e);
@@ -109,8 +152,16 @@ async fn delete_data_container(
 ) -> Result<&'static str, impl WebResponseError> {
     let RDDataContainerParams { id } = params.into_inner();
 
-    match DataContainer::delete_by_id(id).exec(&state.db).await {
-        Ok(_) => Ok("Data container deleted"),
+    match DataContainer::delete_by_id(&id).exec(&state.db).await {
+        Ok(_) => {
+            let mut redis_conn = state
+                .redis
+                .get_multiplexed_tokio_connection()
+                .await
+                .unwrap();
+            let _: () = redis_conn.del(get_redis_id(PREFIX, &id)).await.unwrap();
+            Ok("Data container deleted")
+        }
         Err(e) => {
             eprintln!("Error deleting data container: {:?}", e);
             Err(ErrorInternalServerError("Query failed"))
