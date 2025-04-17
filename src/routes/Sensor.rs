@@ -5,11 +5,17 @@ use ntex::web::{
     get, patch, post,
     types::{Json, Path, State},
 };
+use redis::AsyncCommands;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, SqlErr};
 use serde::Deserialize;
 
-use crate::AppState;
 use crate::entities::{prelude::*, *};
+use crate::{
+    AppState,
+    utils::{get_redis_id, get_redis_set_options},
+};
+
+const PREFIX: &str = "Sensor";
 
 #[derive(Deserialize)]
 struct SensorCreate {
@@ -45,7 +51,22 @@ async fn create_sensor(
     };
 
     match new_sensor.insert(&state.db).await {
-        Ok(entity) => Ok(Json(entity)),
+        Ok(entity) => {
+            let mut redis_conn = state
+                .redis
+                .get_multiplexed_tokio_connection()
+                .await
+                .unwrap();
+            let _: () = redis_conn
+                .set_options(
+                    get_redis_id(PREFIX, &entity.id),
+                    serde_json::to_string(&entity).unwrap(),
+                    get_redis_set_options(),
+                )
+                .await
+                .unwrap();
+            Ok(Json(entity))
+        }
         Err(e) => match e.sql_err() {
             Some(SqlErr::ForeignKeyConstraintViolation(_)) => {
                 Err(ErrorBadRequest("Can't find application"))
@@ -65,8 +86,30 @@ async fn get_sensor(
 ) -> Result<Json<sensor::Model>, impl WebResponseError> {
     let RUDSensorParams { id } = params.into_inner();
 
-    match Sensor::find_by_id(id).one(&state.db).await {
-        Ok(Some(entity)) => Ok(Json(entity)),
+    let mut redis_conn = state
+        .redis
+        .get_multiplexed_tokio_connection()
+        .await
+        .unwrap();
+
+    if let Ok(cached_sensor) = redis_conn.get::<_, String>(get_redis_id(PREFIX, &id)).await {
+        if let Ok(sensor) = serde_json::from_str::<sensor::Model>(&cached_sensor) {
+            return Ok(Json(sensor));
+        }
+    }
+
+    match Sensor::find_by_id(&id).one(&state.db).await {
+        Ok(Some(entity)) => {
+            let _: () = redis_conn
+                .set_options(
+                    get_redis_id(PREFIX, &id),
+                    serde_json::to_string(&entity).unwrap(),
+                    get_redis_set_options(),
+                )
+                .await
+                .unwrap();
+            Ok(Json(entity))
+        }
         Ok(None) => Err(ErrorBadRequest("Can't find sensor")),
         Err(e) => {
             eprintln!("Error fetching sensor: {:?}", e);
@@ -106,12 +149,27 @@ async fn update_sensor(
     let RUDSensorParams { id } = params.into_inner();
     let SensorUpdate { name } = body.into_inner();
 
-    match Sensor::find_by_id(id).one(&state.db).await {
+    match Sensor::find_by_id(&id).one(&state.db).await {
         Ok(Some(e)) => {
             let mut entity: sensor::ActiveModel = e.into();
             entity.name = sea_orm::ActiveValue::Set(name.to_owned());
             match entity.update(&state.db).await {
-                Ok(updated_entity) => Ok(Json(updated_entity)),
+                Ok(updated_entity) => {
+                    let mut redis_conn = state
+                        .redis
+                        .get_multiplexed_tokio_connection()
+                        .await
+                        .unwrap();
+                    let _: () = redis_conn
+                        .set_options(
+                            get_redis_id(PREFIX, &id),
+                            serde_json::to_string(&updated_entity).unwrap(),
+                            get_redis_set_options(),
+                        )
+                        .await
+                        .unwrap();
+                    Ok(Json(updated_entity))
+                }
                 Err(e) => {
                     eprintln!("Error updating sensor: {:?}", e);
                     Err(ErrorInternalServerError("Failed to update sensor"))
@@ -133,8 +191,16 @@ async fn delete_sensor(
 ) -> Result<&'static str, impl WebResponseError> {
     let RUDSensorParams { id } = params.into_inner();
 
-    match Sensor::delete_by_id(id).exec(&state.db).await {
-        Ok(_) => Ok("Sensor deleted successfully"),
+    match Sensor::delete_by_id(&id).exec(&state.db).await {
+        Ok(_) => {
+            let mut redis_conn = state
+                .redis
+                .get_multiplexed_tokio_connection()
+                .await
+                .unwrap();
+            let _: () = redis_conn.del(get_redis_id(PREFIX, &id)).await.unwrap();
+            Ok("Sensor deleted successfully")
+        }
         Err(e) => {
             eprintln!("Error deleting sensor: {:?}", e);
             Err(ErrorInternalServerError("Failed to delete sensor"))
