@@ -1,5 +1,8 @@
 use actix_cors::Cors;
-use actix_web::{get, main, web::{scope, Data}, App, HttpServer};
+use actix_web::{
+    App, HttpServer, get, main,
+    web::{Data, scope},
+};
 use dotenv::dotenv;
 use redis::Client;
 use routes::{
