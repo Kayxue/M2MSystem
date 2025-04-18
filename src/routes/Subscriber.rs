@@ -5,11 +5,17 @@ use actix_web::{
     web::{Data, Json, Path, ServiceConfig},
 };
 use nanoid::nanoid;
+use redis::AsyncCommands;
 use sea_orm::{ActiveModelTrait, EntityTrait, SqlErr};
 use serde::Deserialize;
 
-use crate::AppState;
-use crate::entities::{prelude::*, *};
+use crate::{
+    AppState,
+    entities::{prelude::*, *},
+    utils::{get_redis_id, get_redis_set_options},
+};
+
+const PREFIX: &str = "Subscriber";
 
 #[derive(Deserialize)]
 struct SubscriberCreate {
@@ -45,7 +51,22 @@ async fn create_subscriber(
     };
 
     match new_subscriber.insert(&state.db).await {
-        Ok(entity) => Ok(Json(entity)),
+        Ok(entity) => {
+            let mut redis_conn = state
+                .redis
+                .get_multiplexed_tokio_connection()
+                .await
+                .unwrap();
+            let _: () = redis_conn
+                .set_options(
+                    get_redis_id(PREFIX, &entity.id),
+                    serde_json::to_string(&entity).unwrap(),
+                    get_redis_set_options(),
+                )
+                .await
+                .unwrap();
+            Ok(Json(entity))
+        }
         Err(e) => match e.sql_err() {
             Some(SqlErr::ForeignKeyConstraintViolation(_)) => {
                 Err(ErrorBadRequest("Can't find data container"))
@@ -64,8 +85,30 @@ async fn get_subscriber(
     params: Path<RUDSubscriberParams>,
 ) -> Result<Json<subscribers::Model>, Error> {
     let RUDSubscriberParams { id } = params.into_inner();
-    match Subscribers::find_by_id(id).one(&state.db).await {
-        Ok(Some(entity)) => Ok(Json(entity)),
+    let mut redis_conn = state
+        .redis
+        .get_multiplexed_tokio_connection()
+        .await
+        .unwrap();
+
+    if let Ok(cached_subscriber) = redis_conn.get::<_, String>(&id).await {
+        if let Ok(entity) = serde_json::from_str::<subscribers::Model>(&cached_subscriber) {
+            return Ok(Json(entity));
+        }
+    }
+
+    match Subscribers::find_by_id(&id).one(&state.db).await {
+        Ok(Some(entity)) => {
+            let _: () = redis_conn
+                .set_options(
+                    get_redis_id(PREFIX, &id),
+                    serde_json::to_string(&entity).unwrap(),
+                    get_redis_set_options(),
+                )
+                .await
+                .unwrap();
+            Ok(Json(entity))
+        }
         Ok(None) => Err(ErrorBadRequest("Subscriber not found")),
         Err(e) => {
             eprintln!("Error fetching subscriber: {:?}", e);
@@ -83,12 +126,27 @@ async fn update_subscriber(
     let RUDSubscriberParams { id } = params.into_inner();
     let SubscriberUpdate { notification_url } = body.into_inner();
 
-    match Subscribers::find_by_id(id).one(&state.db).await {
+    match Subscribers::find_by_id(&id).one(&state.db).await {
         Ok(Some(subscriber)) => {
             let mut subscriber: subscribers::ActiveModel = subscriber.into();
             subscriber.notification_url = sea_orm::ActiveValue::Set(notification_url.to_owned());
             match subscriber.update(&state.db).await {
-                Ok(entity) => Ok(Json(entity)),
+                Ok(entity) => {
+                    let mut redis_conn = state
+                        .redis
+                        .get_multiplexed_tokio_connection()
+                        .await
+                        .unwrap();
+                    let _: () = redis_conn
+                        .set_options(
+                            get_redis_id(PREFIX, &id),
+                            serde_json::to_string(&entity).unwrap(),
+                            get_redis_set_options(),
+                        )
+                        .await
+                        .unwrap();
+                    Ok(Json(entity))
+                }
                 Err(e) => {
                     eprintln!("Error updating subscriber: {:?}", e);
                     Err(ErrorInternalServerError("Query failed"))
@@ -110,8 +168,16 @@ async fn delete_subscriber(
 ) -> Result<&'static str, Error> {
     let RUDSubscriberParams { id } = params.into_inner();
 
-    match Subscribers::delete_by_id(id).exec(&state.db).await {
-        Ok(_) => Ok("Subscriber deleted successfully"),
+    match Subscribers::delete_by_id(&id).exec(&state.db).await {
+        Ok(_) => {
+            let mut redis_conn = state
+                .redis
+                .get_multiplexed_tokio_connection()
+                .await
+                .unwrap();
+            let _: () = redis_conn.del(get_redis_id(PREFIX, &id)).await.unwrap();
+            Ok("Subscriber deleted successfully")
+        }
         Err(e) => {
             eprintln!("Error deleting subscriber: {:?}", e);
             Err(ErrorInternalServerError("Query failed"))
