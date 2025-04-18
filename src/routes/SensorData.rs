@@ -1,7 +1,7 @@
 use actix_web::{
     Error, delete,
     error::{ErrorBadRequest, ErrorInternalServerError},
-    get, patch, post,
+    get, post,
     web::{Data, Json, Path, ServiceConfig},
 };
 use nanoid::nanoid;
@@ -15,11 +15,6 @@ use crate::entities::{prelude::*, *};
 #[derive(Deserialize)]
 struct SensorDataCreate {
     pub container_id: String,
-    pub data: Value,
-}
-
-#[derive(Deserialize)]
-struct SensorDataUpdate {
     pub data: Value,
 }
 

@@ -7,11 +7,11 @@ use serde::{Deserialize, Serialize};
 #[sea_orm(table_name = "sensor_data")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
+    pub id: String,
+    #[sea_orm(primary_key, auto_increment = false)]
     pub container_id: String,
     pub created_at: DateTime,
     pub data: Option<Json>,
-    #[sea_orm(primary_key, auto_increment = false)]
-    pub id: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
