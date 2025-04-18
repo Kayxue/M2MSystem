@@ -5,12 +5,18 @@ use actix_web::{
     web::{Data, Json, Path, ServiceConfig},
 };
 use nanoid::nanoid;
+use redis::AsyncCommands;
 use sea_orm::{ActiveModelTrait, EntityTrait, SqlErr};
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::AppState;
-use crate::entities::{prelude::*, *};
+use crate::{
+    AppState,
+    entities::{prelude::*, *},
+    utils::{get_redis_id, get_redis_set_options},
+};
+
+const PREFIX: &str = "SensorData";
 
 #[derive(Deserialize)]
 struct SensorDataCreate {
@@ -39,7 +45,22 @@ async fn create_sensor_data(
 
     match new_sensor_data.insert(&state.db).await {
         //TODO: Send new data to subscribers
-        Ok(entity) => Ok(Json(entity)),
+        Ok(entity) => {
+            let mut redis_conn = state
+                .redis
+                .get_multiplexed_tokio_connection()
+                .await
+                .unwrap();
+            let _: () = redis_conn
+                .set_options(
+                    get_redis_id(PREFIX, &entity.id),
+                    serde_json::to_string(&entity).unwrap(),
+                    get_redis_set_options(),
+                )
+                .await
+                .unwrap();
+            Ok(Json(entity))
+        }
         Err(e) => match e.sql_err() {
             Some(SqlErr::ForeignKeyConstraintViolation(_)) => {
                 Err(ErrorBadRequest("Can't find data container"))
@@ -59,8 +80,30 @@ async fn get_sensor_data(
 ) -> Result<Json<sensor_data::Model>, Error> {
     let RDSensorDataParams { id } = params.into_inner();
 
-    match SensorData::find_by_id(id).one(&state.db).await {
-        Ok(Some(entity)) => Ok(Json(entity)),
+    let mut redis_conn = state
+        .redis
+        .get_multiplexed_tokio_connection()
+        .await
+        .unwrap();
+
+    if let Ok(cached_data) = redis_conn.get::<_, String>(get_redis_id(PREFIX, &id)).await {
+        if let Ok(entity) = serde_json::from_str::<sensor_data::Model>(&cached_data) {
+            return Ok(Json(entity));
+        }
+    }
+
+    match SensorData::find_by_id(&id).one(&state.db).await {
+        Ok(Some(entity)) => {
+            let _: () = redis_conn
+                .set_options(
+                    get_redis_id(PREFIX, &id),
+                    serde_json::to_string(&entity).unwrap(),
+                    get_redis_set_options(),
+                )
+                .await
+                .unwrap();
+            Ok(Json(entity))
+        }
         Ok(None) => Err(ErrorBadRequest("Sensor data not found")),
         Err(e) => {
             eprintln!("Error fetching sensor data: {:?}", e);
@@ -76,8 +119,16 @@ async fn delete_sensor_data(
 ) -> Result<&'static str, Error> {
     let RDSensorDataParams { id } = params.into_inner();
 
-    match SensorData::delete_by_id(id).exec(&state.db).await {
-        Ok(_) => Ok("Sensor data deleted successfully"),
+    match SensorData::delete_by_id(&id).exec(&state.db).await {
+        Ok(_) => {
+            let mut redis_conn = state
+                .redis
+                .get_multiplexed_tokio_connection()
+                .await
+                .unwrap();
+            let _: () = redis_conn.del(get_redis_id(PREFIX, &id)).await.unwrap();
+            Ok("Sensor data deleted successfully")
+        }
         Err(e) => {
             eprintln!("Error deleting sensor data: {:?}", e);
             Err(ErrorInternalServerError("Query failed"))
