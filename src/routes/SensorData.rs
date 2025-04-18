@@ -39,6 +39,7 @@ async fn create_sensor_data(
     };
 
     match new_sensor_data.insert(&state.db).await {
+        //TODO: Send new data to subscribers
         Ok(entity) => Ok(Json(entity)),
         Err(e) => match e.sql_err() {
             Some(SqlErr::ForeignKeyConstraintViolation(_)) => {
@@ -64,7 +65,9 @@ async fn get_sensor_data(
         .await
     {
         Ok(Some(entity)) => Ok(Json(entity)),
-        Ok(None) => Err(ErrorBadRequest("Sensor data not found")),
+        Ok(None) => {
+            Err(ErrorBadRequest("Sensor data not found"))
+        },
         Err(e) => {
             eprintln!("Error fetching sensor data: {:?}", e);
             Err(ErrorInternalServerError("Query failed"))
