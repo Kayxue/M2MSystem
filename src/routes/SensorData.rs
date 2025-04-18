@@ -24,8 +24,9 @@ struct SensorDataUpdate {
 }
 
 #[derive(Deserialize)]
-struct RUDSensorDataParams {
+struct RDSensorDataParams {
     id: String,
+    container_id: String,
 }
 
 #[post("")]
@@ -37,8 +38,8 @@ async fn create_sensor_data(
 
     let new_sensor_data = sensor_data::ActiveModel {
         id: sea_orm::ActiveValue::Set(nanoid!(10)),
-        data: sea_orm::ActiveValue::Set(Some(data)),
         container_id: sea_orm::ActiveValue::Set(container_id.to_owned()),
+        data: sea_orm::ActiveValue::Set(Some(data)),
         ..Default::default()
     };
 
@@ -56,14 +57,17 @@ async fn create_sensor_data(
     }
 }
 
-#[get("/{id}")]
+#[get("/{container_id}/{id}")]
 async fn get_sensor_data(
     state: Data<AppState>,
-    params: Path<RUDSensorDataParams>,
+    params: Path<RDSensorDataParams>,
 ) -> Result<Json<sensor_data::Model>, Error> {
-    let RUDSensorDataParams { id } = params.into_inner();
+    let RDSensorDataParams { id, container_id } = params.into_inner();
 
-    match SensorData::find_by_id(id).one(&state.db).await {
+    match SensorData::find_by_id((id, container_id))
+        .one(&state.db)
+        .await
+    {
         Ok(Some(entity)) => Ok(Json(entity)),
         Ok(None) => Err(ErrorBadRequest("Sensor data not found")),
         Err(e) => {
@@ -73,44 +77,17 @@ async fn get_sensor_data(
     }
 }
 
-#[patch("/{id}")]
-async fn update_sensor_data(
-    state: Data<AppState>,
-    params: Path<RUDSensorDataParams>,
-    body: Json<SensorDataUpdate>,
-) -> Result<Json<sensor_data::Model>, Error> {
-    let RUDSensorDataParams { id } = params.into_inner();
-    let SensorDataUpdate { data } = body.into_inner();
-
-    match SensorData::find_by_id(id).one(&state.db).await {
-        Ok(Some(e)) => {
-            let mut entity: sensor_data::ActiveModel = e.into();
-            entity.data = sea_orm::ActiveValue::Set(Some(data));
-            match entity.update(&state.db).await {
-                Ok(updated_entity) => Ok(Json(updated_entity)),
-                //TODO: Send new data to subscribers of the data container
-                Err(e) => {
-                    eprintln!("Error updating sensor data: {:?}", e);
-                    Err(ErrorInternalServerError("Query failed"))
-                }
-            }
-        }
-        Ok(None) => Err(ErrorBadRequest("Sensor data not found")),
-        Err(e) => {
-            eprintln!("Error fetching sensor data: {:?}", e);
-            Err(ErrorInternalServerError("Query failed"))
-        }
-    }
-}
-
-#[delete("/{id}")]
+#[delete("/{container_id}/{id}")]
 async fn delete_sensor_data(
     state: Data<AppState>,
-    params: Path<RUDSensorDataParams>,
+    params: Path<RDSensorDataParams>,
 ) -> Result<&'static str, Error> {
-    let RUDSensorDataParams { id } = params.into_inner();
+    let RDSensorDataParams { id, container_id } = params.into_inner();
 
-    match SensorData::delete_by_id(id).exec(&state.db).await {
+    match SensorData::delete_by_id((id, container_id))
+        .exec(&state.db)
+        .await
+    {
         Ok(_) => Ok("Sensor data deleted successfully"),
         Err(e) => {
             eprintln!("Error deleting sensor data: {:?}", e);
@@ -122,6 +99,5 @@ async fn delete_sensor_data(
 pub fn add_sensor_data_route(cfg: &mut ServiceConfig) {
     cfg.service(create_sensor_data)
         .service(get_sensor_data)
-        .service(update_sensor_data)
         .service(delete_sensor_data);
 }
