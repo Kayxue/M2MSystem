@@ -58,7 +58,7 @@ async fn create_subscriber(
     }
 }
 
-#[get("/{container_id}/{id}")]
+#[get("/{id}")]
 async fn get_subscriber(
     state: Data<AppState>,
     params: Path<RUDSubscriberParams>,
@@ -74,7 +74,7 @@ async fn get_subscriber(
     }
 }
 
-#[patch("/{container_id}/{id}")]
+#[patch("/{id}")]
 async fn update_subscriber(
     state: Data<AppState>,
     params: Path<RUDSubscriberParams>,
@@ -103,7 +103,7 @@ async fn update_subscriber(
     }
 }
 
-#[delete("/{container_id}/{id}")]
+#[delete("/{id}")]
 async fn delete_subscriber(
     state: Data<AppState>,
     params: Path<RUDSubscriberParams>,
