@@ -24,7 +24,6 @@ struct SubscriberUpdate {
 
 #[derive(Deserialize)]
 struct RUDSubscriberParams {
-    container_id: String,
     id: String,
 }
 
@@ -64,11 +63,8 @@ async fn get_subscriber(
     state: Data<AppState>,
     params: Path<RUDSubscriberParams>,
 ) -> Result<Json<subscribers::Model>, Error> {
-    let RUDSubscriberParams { id, container_id } = params.into_inner();
-    match Subscribers::find_by_id((id, container_id))
-        .one(&state.db)
-        .await
-    {
+    let RUDSubscriberParams { id } = params.into_inner();
+    match Subscribers::find_by_id(id).one(&state.db).await {
         Ok(Some(entity)) => Ok(Json(entity)),
         Ok(None) => Err(ErrorBadRequest("Subscriber not found")),
         Err(e) => {
@@ -84,13 +80,10 @@ async fn update_subscriber(
     params: Path<RUDSubscriberParams>,
     body: Json<SubscriberUpdate>,
 ) -> Result<Json<subscribers::Model>, Error> {
-    let RUDSubscriberParams { id, container_id } = params.into_inner();
+    let RUDSubscriberParams { id } = params.into_inner();
     let SubscriberUpdate { notification_url } = body.into_inner();
 
-    match Subscribers::find_by_id((id, container_id))
-        .one(&state.db)
-        .await
-    {
+    match Subscribers::find_by_id(id).one(&state.db).await {
         Ok(Some(subscriber)) => {
             let mut subscriber: subscribers::ActiveModel = subscriber.into();
             subscriber.notification_url = sea_orm::ActiveValue::Set(notification_url.to_owned());
@@ -115,12 +108,9 @@ async fn delete_subscriber(
     state: Data<AppState>,
     params: Path<RUDSubscriberParams>,
 ) -> Result<&'static str, Error> {
-    let RUDSubscriberParams { id, container_id } = params.into_inner();
+    let RUDSubscriberParams { id } = params.into_inner();
 
-    match Subscribers::delete_by_id((id, container_id))
-        .exec(&state.db)
-        .await
-    {
+    match Subscribers::delete_by_id(id).exec(&state.db).await {
         Ok(_) => Ok("Subscriber deleted successfully"),
         Err(e) => {
             eprintln!("Error deleting subscriber: {:?}", e);
