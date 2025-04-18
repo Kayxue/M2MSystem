@@ -21,7 +21,6 @@ struct SensorDataCreate {
 #[derive(Deserialize)]
 struct RDSensorDataParams {
     id: String,
-    container_id: String,
 }
 
 #[post("")]
@@ -32,7 +31,7 @@ async fn create_sensor_data(
     let SensorDataCreate { container_id, data } = body.into_inner();
 
     let new_sensor_data = sensor_data::ActiveModel {
-        id: sea_orm::ActiveValue::Set(nanoid!(10)),
+        id: sea_orm::ActiveValue::Set(nanoid!(21)),
         container_id: sea_orm::ActiveValue::Set(container_id.to_owned()),
         data: sea_orm::ActiveValue::Set(Some(data)),
         ..Default::default()
@@ -53,21 +52,16 @@ async fn create_sensor_data(
     }
 }
 
-#[get("/{container_id}/{id}")]
+#[get("/{id}")]
 async fn get_sensor_data(
     state: Data<AppState>,
     params: Path<RDSensorDataParams>,
 ) -> Result<Json<sensor_data::Model>, Error> {
-    let RDSensorDataParams { id, container_id } = params.into_inner();
+    let RDSensorDataParams { id } = params.into_inner();
 
-    match SensorData::find_by_id((id, container_id))
-        .one(&state.db)
-        .await
-    {
+    match SensorData::find_by_id(id).one(&state.db).await {
         Ok(Some(entity)) => Ok(Json(entity)),
-        Ok(None) => {
-            Err(ErrorBadRequest("Sensor data not found"))
-        },
+        Ok(None) => Err(ErrorBadRequest("Sensor data not found")),
         Err(e) => {
             eprintln!("Error fetching sensor data: {:?}", e);
             Err(ErrorInternalServerError("Query failed"))
@@ -75,17 +69,14 @@ async fn get_sensor_data(
     }
 }
 
-#[delete("/{container_id}/{id}")]
+#[delete("/{id}")]
 async fn delete_sensor_data(
     state: Data<AppState>,
     params: Path<RDSensorDataParams>,
 ) -> Result<&'static str, Error> {
-    let RDSensorDataParams { id, container_id } = params.into_inner();
+    let RDSensorDataParams { id } = params.into_inner();
 
-    match SensorData::delete_by_id((id, container_id))
-        .exec(&state.db)
-        .await
-    {
+    match SensorData::delete_by_id(id).exec(&state.db).await {
         Ok(_) => Ok("Sensor data deleted successfully"),
         Err(e) => {
             eprintln!("Error deleting sensor data: {:?}", e);
