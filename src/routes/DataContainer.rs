@@ -9,10 +9,13 @@ use redis::AsyncCommands;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, SqlErr};
 use serde::Deserialize;
 
-use crate::entities::{prelude::*, *};
 use crate::{
     AppState,
     utils::{get_redis_id, get_redis_set_options},
+};
+use crate::{
+    entities::{prelude::*, *},
+    routes::Subscriber::SUBSCRIBER_LIST_PREFIX,
 };
 
 const PREFIX: &str = "DataContainer";
@@ -132,12 +135,32 @@ async fn get_subscribers(
     params: Path<RDDataContainerParams>,
 ) -> Result<Json<Vec<subscribers::Model>>, Error> {
     let RDDataContainerParams { id } = params.into_inner();
+
     match Subscribers::find()
-        .filter(subscribers::Column::ContainerId.eq(id))
+        .filter(subscribers::Column::ContainerId.eq(&id))
         .all(&state.db)
         .await
     {
-        Ok(entities) => Ok(Json(entities)),
+        Ok(entities) => {
+            let mut redis_conn = state
+                .redis
+                .get_multiplexed_tokio_connection()
+                .await
+                .unwrap();
+
+            let _: () = redis_conn
+                .set_options(
+                    get_redis_id(SUBSCRIBER_LIST_PREFIX, &id),
+                    entities
+                        .iter()
+                        .map(|e| e.notification_url.to_owned())
+                        .collect::<Vec<String>>(),
+                    get_redis_set_options(),
+                )
+                .await
+                .unwrap();
+            Ok(Json(entities))
+        }
         Err(e) => {
             eprintln!("Error fetching subscribers: {:?}", e);
             Err(ErrorInternalServerError("Query failed"))

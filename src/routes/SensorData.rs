@@ -6,13 +6,14 @@ use actix_web::{
 };
 use nanoid::nanoid;
 use redis::AsyncCommands;
-use sea_orm::{ActiveModelTrait, EntityTrait, SqlErr};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, SqlErr};
 use serde::Deserialize;
 use serde_json::Value;
 
 use crate::{
     AppState,
     entities::{prelude::*, *},
+    routes::Subscriber::SUBSCRIBER_LIST_PREFIX,
     utils::{get_redis_id, get_redis_set_options},
 };
 
@@ -44,7 +45,6 @@ async fn create_sensor_data(
     };
 
     match new_sensor_data.insert(&state.db).await {
-        //TODO: Send new data to subscribers
         Ok(entity) => {
             let mut redis_conn = state
                 .redis
@@ -59,6 +59,40 @@ async fn create_sensor_data(
                 )
                 .await
                 .unwrap();
+
+            if let Ok(cached_subscriber_list) = redis_conn
+                .get::<_, Vec<String>>(get_redis_id(SUBSCRIBER_LIST_PREFIX, &entity.container_id))
+                .await
+            {
+                for subscriber in cached_subscriber_list {
+                    //TODO: Send new data to subscriber
+                }
+            } else {
+                match Subscribers::find()
+                    .filter(subscribers::Column::ContainerId.eq(&entity.container_id))
+                    .all(&state.db)
+                    .await
+                {
+                    Ok(subs) => {
+                        let _: () = redis_conn
+                            .set_options(
+                                get_redis_id(SUBSCRIBER_LIST_PREFIX, &entity.container_id),
+                                subs.iter()
+                                    .map(|e| e.notification_url.to_owned())
+                                    .collect::<Vec<String>>(),
+                                get_redis_set_options(),
+                            )
+                            .await
+                            .unwrap();
+                        for subscriber in subs {
+                            //TODO: Send new data to subscriber
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Error finding subscribers: {:?}", e);
+                    }
+                }
+            }
             Ok(Json(entity))
         }
         Err(e) => match e.sql_err() {

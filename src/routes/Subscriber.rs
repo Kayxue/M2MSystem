@@ -16,6 +16,7 @@ use crate::{
 };
 
 const PREFIX: &str = "Subscriber";
+pub const SUBSCRIBER_LIST_PREFIX: &str = "SubscriberList";
 
 #[derive(Deserialize)]
 struct SubscriberCreate {
@@ -65,6 +66,10 @@ async fn create_subscriber(
                 )
                 .await
                 .unwrap();
+            let _: () = redis_conn
+                .del(get_redis_id(SUBSCRIBER_LIST_PREFIX, &entity.container_id))
+                .await
+                .unwrap();
             Ok(Json(entity))
         }
         Err(e) => match e.sql_err() {
@@ -91,7 +96,7 @@ async fn get_subscriber(
         .await
         .unwrap();
 
-    if let Ok(cached_subscriber) = redis_conn.get::<_, String>(&id).await {
+    if let Ok(cached_subscriber) = redis_conn.get::<_, String>(get_redis_id(PREFIX, &id)).await {
         if let Ok(entity) = serde_json::from_str::<subscribers::Model>(&cached_subscriber) {
             return Ok(Json(entity));
         }
@@ -145,6 +150,10 @@ async fn update_subscriber(
                         )
                         .await
                         .unwrap();
+                    let _: () = redis_conn
+                        .del(get_redis_id(SUBSCRIBER_LIST_PREFIX, &entity.container_id))
+                        .await
+                        .unwrap();
                     Ok(Json(entity))
                 }
                 Err(e) => {
@@ -168,18 +177,29 @@ async fn delete_subscriber(
 ) -> Result<&'static str, Error> {
     let RUDSubscriberParams { id } = params.into_inner();
 
-    match Subscribers::delete_by_id(&id).exec(&state.db).await {
-        Ok(_) => {
-            let mut redis_conn = state
-                .redis
-                .get_multiplexed_tokio_connection()
-                .await
-                .unwrap();
-            let _: () = redis_conn.del(get_redis_id(PREFIX, &id)).await.unwrap();
-            Ok("Subscriber deleted successfully")
-        }
+    match Subscribers::find_by_id(&id).one(&state.db).await {
+        Ok(Some(entity)) => match Subscribers::delete_by_id(&id).exec(&state.db).await {
+            Ok(_) => {
+                let mut redis_conn = state
+                    .redis
+                    .get_multiplexed_tokio_connection()
+                    .await
+                    .unwrap();
+                let _: () = redis_conn.del(get_redis_id(PREFIX, &id)).await.unwrap();
+                let _: () = redis_conn
+                    .del(get_redis_id(SUBSCRIBER_LIST_PREFIX, &entity.container_id))
+                    .await
+                    .unwrap();
+                Ok("Subscriber deleted successfully")
+            }
+            Err(e) => {
+                eprintln!("Error deleting subscriber: {:?}", e);
+                Err(ErrorInternalServerError("Query failed"))
+            }
+        },
+        Ok(None) => Err(ErrorBadRequest("Subscriber not found")),
         Err(e) => {
-            eprintln!("Error deleting subscriber: {:?}", e);
+            eprintln!("Error fetching subscriber: {:?}", e);
             Err(ErrorInternalServerError("Query failed"))
         }
     }
