@@ -91,7 +91,7 @@ async fn get_subscriber(
         .await
         .unwrap();
 
-    if let Ok(cached_subscriber) = redis_conn.get::<_, String>(&id).await {
+    if let Ok(cached_subscriber) = redis_conn.get::<_, String>(get_redis_id(PREFIX, &id)).await {
         if let Ok(entity) = serde_json::from_str::<subscribers::Model>(&cached_subscriber) {
             return Ok(Json(entity));
         }
