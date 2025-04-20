@@ -6,7 +6,7 @@ use actix_web::{
 };
 use nanoid::nanoid;
 use redis::AsyncCommands;
-use sea_orm::{ActiveModelTrait, EntityTrait, SqlErr};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, SqlErr};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -59,6 +59,14 @@ async fn create_sensor_data(
                 )
                 .await
                 .unwrap();
+            let subscriberList = Subscribers::find()
+                .filter(subscribers::Column::ContainerId.eq(&entity.container_id))
+                .all(&state.db)
+                .await
+                .unwrap();
+            for subscriber in subscriberList {
+                // Send new data to subscriber
+            }
             Ok(Json(entity))
         }
         Err(e) => match e.sql_err() {
