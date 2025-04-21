@@ -59,13 +59,15 @@ async fn create_sensor_data(
                 )
                 .await
                 .unwrap();
-            let subscriberList = Subscribers::find()
+            let subscriber_list = Subscribers::find()
                 .filter(subscribers::Column::ContainerId.eq(&entity.container_id))
                 .all(&state.db)
                 .await
                 .unwrap();
-            for subscriber in subscriberList {
-                // Send new data to subscriber
+            for subscriber in subscriber_list {
+                if let Ok(_) = surf::post(&subscriber.notification_url).await {
+                    // Do nothing
+                }
             }
             Ok(Json(entity))
         }
